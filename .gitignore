@@ -1,0 +1,5 @@
+build/
+.cache/
+setup_config.bat
+cmake/
+.git/
