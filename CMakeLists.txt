@@ -28,11 +28,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(compiler_options)
 
 # -- specify libraries used --
-add_library(codon_lib src/types.cpp)
+add_library(codon_lib src/codon.cpp)
+
 
 target_include_directories(codon_lib
-	PUBLIC ${PROJECT_SOURCE_DIR}/include
-)
+	PUBLIC 
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/include/plog/include
+ncl)
 
 # -- imported compiler options --
 target_compile_options(codon_lib
@@ -42,19 +45,37 @@ target_compile_options(codon_lib
 )
 
 # -- main executable / you can change the name here--
-add_executable(codon src/main.cpp)
+add_subdirectory(
+    ${PROJECT_SOURCE_DIR}/include/plog
+)
+
+add_executable(codon src/main.cpp src/logging.cpp)
 
 target_link_libraries(codon
-	PRIVATE codon_lib
+	PRIVATE
+    codon_lib
+    plog::plog
+)
+
+target_compile_definitions(codon
+    PRIVATE
+    PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
 )
 
 # -- Testing section --
 enable_testing()
 
-add_executable(codon_tests test/test_lib.cpp)
+add_executable(codon_tests test/test_lib.cpp src/logging.cpp)
 
 target_link_libraries(codon_tests
-	PRIVATE	 codon_lib
+	PRIVATE
+    codon_lib
+    plog::plog
+)
+
+target_compile_definitions(codon_tests
+    PRIVATE
+    PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon_test.csv"
 )
 
 add_test(NAME codon_tests COMMAND codon_tests)

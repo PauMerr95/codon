@@ -1,9 +1,11 @@
-#include <iostream>
-#include "types.hpp"
+#include <plog/Log.h>
 
 int main(){
-	std::cout << "Running main executable!\n";
-	types::display_bases(types::bases);
+    PLOGD << "Running main executable";
+
+    
+    PLOGD << "Ending main executable";
 	return 0;
 }
+
 
