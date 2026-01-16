@@ -18,8 +18,15 @@ class Codon {
     Codon(base base);
     ~Codon();
 
-	int get_bases_int() const;
-    std::size_t get_bases_len() const;
-	std::bitset<8> get_bases_bin() const;
-	std::string get_bases_str() const;
+	int             get_bases_int() const;
+    std::size_t     get_bases_len() const;
+	std::bitset<8>  get_bases_bin() const;
+	std::string     get_bases_str() const;
+
+    void cast_to_switch();
+
+    void insert_right   (base base);
+    void insert_left    (base base);
+    base squeeze_right  (base base);
+    base squeeze_left   (base base);
 };

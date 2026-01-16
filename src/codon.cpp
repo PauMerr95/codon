@@ -25,19 +25,28 @@ Codon::Codon(const std::string& bases_str) {
      * This is probably not necessary but it was one of the things I added during debugging and 
      * it's only a temporary object.
      */
-	std::uint16_t generator {0};
-	generator |= G;
-    PLOGD << "Generating Codon " << bases_str;
-	for (int i=0; i < bases_str.length(); i++) {
-		switch (bases_str[i]) {
-			case 'A': generator = generator << 2 | A; break;
-			case 'G': generator = generator << 2 | G; break;
-			case 'C': generator = generator << 2 | C; break;
-			case 'T': generator = generator << 2 | T; break;
-		}
-	}
-	this->bases = static_cast<uint8_t>(generator);
-    PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
+    if (bases_str == "VOID") {
+        this->bases = VOID_5;
+        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
+    }
+    else if (bases_str == "SWITCH") {
+        this->bases = SWITCH_5;
+        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
+    }
+    else {
+        std::uint16_t generator {0};
+        generator |= G;
+        for (int i=0; i < bases_str.length(); i++) {
+            switch (bases_str[i]) {
+                case 'A': generator = generator << 2 | A; break;
+                case 'G': generator = generator << 2 | G; break;
+                case 'C': generator = generator << 2 | C; break;
+                case 'T': generator = generator << 2 | T; break;
+            }
+        }
+        this->bases = static_cast<uint8_t>(generator);
+        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
+    }
 };
 
 Codon::Codon(base base){
@@ -48,10 +57,6 @@ Codon::Codon(base base){
 Codon::~Codon() {
     PLOGD << "Destroying Codon at memory location " << &this->bases;
 }
-
-
-
-
 
 
 std::bitset<8> Codon::get_bases_bin() const{
@@ -130,4 +135,58 @@ std::string Codon::get_bases_str() const{
     PLOGD << "Determined string to be '" << codon_str << "' for " << this->get_bases_bin();
 
     return codon_str;
+}
+
+void Codon::cast_to_switch() {
+    if      (this->bases == VOID_5)     this->bases = SWITCH_5;
+    else if (this->bases == SWITCH_5)   this->bases = VOID_5;
+    else    PLOGF << "Fatal Error: Trying to cast encoding codon to switch";
+}
+
+void Codon::insert_left(base base) {
+    /* left -> new position 1
+     * no length check necessary because that has to be done before calling the fn
+     */
+    this->bases = this->bases << 2;
+    this->bases |= base;
+    PLOGD << "Inserted base left at pos. 1, no dropped base";
+}
+
+void Codon::insert_right(base base) {
+    /* left -> new position 2 or 3 */
+    if (this->get_bases_len() == 2) {
+        this->bases &= static_cast<uint8_t>(0b00001111);
+        this->bases |= (base << 4) | MARKER_POS3_5;
+    PLOGD << "Inserted base right at pos. 3, no dropped base";
+    }
+    else {
+        this->bases &= static_cast<uint8_t>(0b00000011);
+        this->bases |= (base << 2) | MARKER_POS2_5;
+    PLOGD << "Inserted base left at pos. 2, no dropped base";
+    }
+}
+
+base Codon::squeeze_left(base base) {
+    /* left -> new pos. 1,
+     * pos 3 is lost and will be return to be further passed down
+     */
+    this->bases = this->bases << 2;
+    enum base dropped_base = static_cast<enum base>((this->bases & MARKER_LOC3) >> 6);
+    this->bases &= static_cast<uint8_t>(0b00111111);
+    this->bases |= MARKER_LOC3;
+
+    PLOGD << "Squeezed base left at pos. 1 and dropped base " << dropped_base;
+    return dropped_base;
+}
+
+base Codon::squeeze_right(base base) {
+    /* left -> new pos. 3,
+     * pos 1 is lost and will be return to be further passed down
+     */
+    enum base dropped_base = static_cast<enum base>((this->bases & T));
+    this->bases &= static_cast<uint8_t>(0b00111111);
+    this->bases |= MARKER_LOC3;
+
+    PLOGD << "Squeezed base left at pos. 3 and dropped base " << dropped_base;
+    return dropped_base;
 }
