@@ -3,30 +3,34 @@
 #include <string>
 #include <bitset>
 
-enum base : std::uint8_t {
-	A = 0b00,
-	G = 0b01,
-	C = 0b10,
-	T = 0b11
-};
+namespace codon{
 
-class Codon {
-	std::uint8_t bases {0};
+    enum base : std::uint8_t {
+        A = 0b00,
+        G = 0b01,
+        C = 0b10,
+        T = 0b11
+    };
 
-	public:
-	Codon(const std::string& bases_str);
-    Codon(base base);
-    ~Codon();
+    class Codon {
+        std::uint8_t bases {0};
 
-	int             get_bases_int() const;
-    std::size_t     get_bases_len() const;
-	std::bitset<8>  get_bases_bin() const;
-	std::string     get_bases_str() const;
+        public:
+        Codon(const std::string& bases_str);
+        Codon(base base);
+        ~Codon();
 
-    void cast_to_switch();
+        int             get_bases_int() const;
+        std::size_t     get_bases_len() const;
+        std::bitset<8>  get_bases_bin() const;
+        std::string     get_bases_str() const;
 
-    void insert_right   (base base);
-    void insert_left    (base base);
-    base squeeze_right  (base base);
-    base squeeze_left   (base base);
-};
+        void cast_to_switch();
+
+        void insert_right   (base base);
+        void insert_left    (base base);
+        base squeeze_right  (base base);
+        base squeeze_left   (base base);
+    };
+    
+}

@@ -65,17 +65,23 @@ target_compile_definitions(codon
 # -- Testing section --
 enable_testing()
 
-add_executable(codon_tests test/test_lib.cpp src/logging.cpp)
+add_executable(codon_test
+    test/test_codon.cpp
+    src/logging.cpp
+)
 
-target_link_libraries(codon_tests
+target_link_libraries(codon_test
 	PRIVATE
     codon_lib
     plog::plog
 )
 
-target_compile_definitions(codon_tests
+target_compile_definitions(codon_test
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon_test.csv"
+    CODON_TEST="RUNNING"
 )
 
-add_test(NAME codon_tests COMMAND codon_tests)
+add_test(   NAME    codon_test
+            COMMAND codon_test
+        )
