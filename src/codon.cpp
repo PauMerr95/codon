@@ -37,11 +37,9 @@ codon::Codon::Codon(const std::string& bases_str) {
      */
     if (bases_str == "VOID") {
         this->bases = VOID_5;
-        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
     }
     else if (bases_str == "SWITCH") {
         this->bases = SWITCH_5;
-        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
     }
     else {
         std::uint16_t generator {0};
@@ -55,17 +53,14 @@ codon::Codon::Codon(const std::string& bases_str) {
             }
         }
         this->bases = static_cast<uint8_t>(generator);
-        PLOGD << "Generated Codon " << bases_str << " as " << this->get_bases_bin();
     }
 };
 
 codon::Codon::Codon(base base){
     this->bases = MARKER_LOC1_5 | base;
-    PLOGD << "Generated Codon from base: " << this->get_bases_bin();
 }
 
 codon::Codon::~Codon() {
-    PLOGD << "Destroying Codon at memory location " << &this->bases;
 }
 
 
@@ -114,31 +109,18 @@ std::string codon::Codon::get_bases_str() const{
         std::uint8_t extracted_bits_at_len 
             = static_cast<std::uint8_t>(T) << (len-1)*2 & this->bases;
 
-        PLOGD << "Extracted bits at pos. " << idx << ": \t" 
-            << std::bitset<8>(extracted_bits_at_len);
-
         //Shift into position 1 and put into switch statement:
         switch (static_cast<std::uint8_t>(extracted_bits_at_len >> (len-1)*2)) {
-            case A: 
-                PLOGD << "Extracted bits evaluated to 'A' and pushed to idx " << idx;
-                codon_str[idx] = 'A'; break;
-            case G: 
-                PLOGD << "Extracted bits evaluated to 'G' and pushed to idx " << idx;
-                codon_str[idx] = 'G'; break;
-            case C: 
-                PLOGD << "Extracted bits evaluated to 'C' and pushed to idx " << idx;
-                codon_str[idx] = 'C'; break;
-            case T: 
-                PLOGD << "Extracted bits evaluated to 'T' and pushed to idx " << idx;
-                codon_str[idx] = 'T'; break;
+            case A: codon_str[idx] = 'A'; break;
+            case G: codon_str[idx] = 'G'; break;
+            case C: codon_str[idx] = 'C'; break;
+            case T: codon_str[idx] = 'T'; break;
             default: 
-                PLOGF << "Extracted bits could not be evaluated to A, G, C, T";
+                PLOGF << "Fatal error: Extracted bits could not be evaluated to A, G, C, T";
         }
         --len;
         ++idx;
     }
-
-    PLOGD << "Determined string to be '" << codon_str << "' for " << this->get_bases_bin();
 
     return codon_str;
 }
@@ -184,7 +166,6 @@ codon::base codon::Codon::squeeze_right(base new_base) {
     this->bases &= ~(MARKER_LOC3);
     this->bases |= MARKER_LOC3_5;
 
-    PLOGD << "Squeezed base left at pos. 1 and dropped base " << dropped_base;
     return dropped_base;
 }
 
@@ -195,7 +176,5 @@ codon::base codon::Codon::squeeze_left(base new_base) {
     this->bases &= DEL_LEFT_SIDE;
     this->bases |= static_cast<uint8_t>(new_base << 4) | MARKER_LOC3_5;
 
-    PLOGD   << "Squeezed base " << new_base << " left at base 1 and dropped base "
-            << dropped_base << " (previously base 3) -> " << this->get_bases_str();
     return dropped_base;
 }

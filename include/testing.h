@@ -12,4 +12,8 @@ namespace test {
     void check_creation_base(codon::base arr_bases[], int len);
     void check_operations(std::vector<codon::Codon> arr_codons);
 
+
+
+    int seq_test();
+
 }

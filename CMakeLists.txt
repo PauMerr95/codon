@@ -11,10 +11,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-message(STATUS "CXX compiler: ${CMAKE_CXX_COMPILER}")
-message(STATUS "CXX compiler ID: ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "Frontend variant: ${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}")
-message(STATUS "Generator: ${CMAKE_GENERATOR}")
+message(STATUS "CXX compiler:       ${CMAKE_CXX_COMPILER}")
+message(STATUS "CXX compiler ID:    ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "Frontend variant:   ${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}")
+message(STATUS "Generator:          ${CMAKE_GENERATOR}")
 
 # -- This just makes the compilation output cleaner:
 include(GNUInstallDirs)

@@ -102,7 +102,6 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
             case 3: assert(reverse_codon.get_bases_str() == "CCC"); break;
             default: PLOGF << "get_bases_len() outside of expectancy"; assert(0 == 1);
         }
-
     }
 }
 
