@@ -1,5 +1,6 @@
 #pragma once
 #include "codon.h"
+#include "seq.h"
 #include <string>
 #include <vector>
 
@@ -15,5 +16,6 @@ namespace test {
 
 
     int seq_test();
+    std::vector<codon::Seq> seq_build(const std::vector<std::string> &arr_sequences);
 
 }

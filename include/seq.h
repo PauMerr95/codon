@@ -6,22 +6,20 @@
 namespace codon {
 
     class Seq {
-        int shift_startcodon;
-        int shift_stopcodon;
         std::vector<codon::Codon> seq;
 
         public:
-        Seq(const std::string &input, int shift_start=0, int shift_stop=0);
+        Seq(const std::string &input);
         ~Seq();
 
-        void insert_seq(codon::Seq other, int* insert_loc);
-        void set_startcodon(int* startcodon_loc, int shift);
-        void set_stopcodon(int* startcodon_loc, int shift);
-        void realign();
+        void insert_base    (codon::base  base,  std::size_t insert_loc, int shift_loc);
+        void insert_codon   (codon::Codon codon, std::size_t insert_loc, int shift_loc);
+        void insert_seq     (codon::Seq   other, std::size_t insert_loc, int shift_loc);
 
-        std::string get_encoding_str() const;
-        codon::Seq  get_encoding_seq() const;
-        std::vector<std::bitset<8>> get_encoding_bin() const;
+        std::string get_seq_str() const;
+        codon::Seq  get_seq_base() const;
+        std::size_t get_seq_len() const;
+        std::vector<std::bitset<8>> get_seq_bin() const;
 
 
 

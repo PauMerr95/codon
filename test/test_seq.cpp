@@ -1,10 +1,20 @@
-#include "codon.h"
 #include "seq.h"
 #include "testing.h"
-#include <cassert>
+#include <catch2/catch_test_macros.hpp>
 #include <plog/Log.h>
 #include <string>
 
+std::vector<codon::Seq> test::seq_build(const std::vector<std::string> &arr_sequences) {
+    std::vector<codon::Seq> vec_seq;
+    vec_seq.reserve(arr_sequences.size());
+
+    for (const std::string &seq : arr_sequences) {
+        codon::Seq test_seq_temp = codon::Seq(seq);
+        REQUIRE(test_seq_temp.get_seq_str() == seq);
+        vec_seq.push_back(test_seq_temp);
+    }
+    return vec_seq;
+}
 
 int test::seq_test() {
     const std::string test_seq_1_str =
@@ -16,29 +26,17 @@ int test::seq_test() {
     const std::string test_seq_4_str =
         "GTACTAGCATAGCATGCTAGCTGGATCGACTAGCTTGACGATGATCGTCGAACTGGCATGGGACAT";
 
-    codon::Seq test_seq_1 = codon::Seq(test_seq_1_str);
-    assert(test_seq_1.get_encoding_str() == test_seq_1_str);
+    //making unnecessary copies here - will change at some point 
+    std::vector<std::string> arr_seq {
+        test_seq_1_str,
+        test_seq_2_str,
+        test_seq_3_str,
+        test_seq_4_str};
 
-    codon::Seq test_seq_2 = codon::Seq(test_seq_2_str);
-    assert(test_seq_2.get_encoding_str() == test_seq_2_str);
+    //compiler should optimise ReturnValueOptimization
+    std::vector<codon::Seq> test_sequences{ seq_build(arr_seq) };
 
-    codon::Seq test_seq_3 = codon::Seq(test_seq_3_str);
-    assert(test_seq_3.get_encoding_str() == test_seq_3_str);
-
-    codon::Seq test_seq_4 = codon::Seq(test_seq_4_str);
-    assert(test_seq_4.get_encoding_str() == test_seq_4_str);
 
     return 0;
 }
 
-
-#ifdef SEQ_TEST
-
-int main () {
-
-    assert(test::codon_test() == 0);
-    PLOGD << "Passed sequence test";
-    return 0;
-}
-
-#endif /* ifdef  */

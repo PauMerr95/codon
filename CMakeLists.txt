@@ -28,7 +28,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(compiler_options)
 
 # -- specify libraries used --
-add_library(codon_lib src/codon.cpp)
+add_library(codon_lib src/codon.cpp src/seq.cpp)
 
 
 target_include_directories(codon_lib
@@ -62,26 +62,23 @@ target_compile_definitions(codon
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
 )
 
-# -- Testing section --
-enable_testing()
 
-add_executable(codon_test
-    test/test_codon.cpp
-    src/logging.cpp
-)
+# -- testing ---
 
-target_link_libraries(codon_test
-	PRIVATE
+find_package(Catch2 3 REQUIRED)
+
+add_executable(testing 
+    test/test_instantiator.cpp
+    test/test_codon.cpp 
+    test/test_seq.cpp)
+
+target_link_libraries(testing 
+    PRIVATE
     codon_lib
     plog::plog
-)
+    Catch2::Catch2WithMain)
 
-target_compile_definitions(codon_test
-    PRIVATE
-    PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon_test.csv"
-    CODON_TEST="RUNNING"
-)
+include(CTest)
+include(Catch)
+catch_discover_tests(testing)
 
-add_test(   NAME    codon_test
-            COMMAND codon_test
-        )

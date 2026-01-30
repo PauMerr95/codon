@@ -4,17 +4,17 @@
 #include <bitset>
 #include <plog/Log.h>
 
-constexpr std::uint8_t MARKER_LOC3_5 = static_cast<uint8_t>(0b01000000);
-constexpr std::uint8_t MARKER_LOC3_3 = static_cast<uint8_t>(0b10000000);
-constexpr std::uint8_t MARKER_LOC3   = static_cast<uint8_t>(0b11000000);
+constexpr codon::base MARKER_LOC3_5 = static_cast<uint8_t>(0b01000000);
+constexpr codon::base MARKER_LOC3_3 = static_cast<uint8_t>(0b10000000);
+constexpr codon::base MARKER_LOC3   = static_cast<uint8_t>(0b11000000);
 
-constexpr std::uint8_t MARKER_LOC2_5 = static_cast<uint8_t>(0b00010000);
-constexpr std::uint8_t MARKER_LOC2_3 = static_cast<uint8_t>(0b00100000);
-constexpr std::uint8_t MARKER_LOC2   = static_cast<uint8_t>(0b00110000);
+constexpr codon::base MARKER_LOC2_5 = static_cast<uint8_t>(0b00010000);
+constexpr codon::base MARKER_LOC2_3 = static_cast<uint8_t>(0b00100000);
+constexpr codon::base MARKER_LOC2   = static_cast<uint8_t>(0b00110000);
 
-constexpr std::uint8_t MARKER_LOC1_5 = static_cast<uint8_t>(0b00000100);
-constexpr std::uint8_t MARKER_LOC1_3 = static_cast<uint8_t>(0b00001000);
-constexpr std::uint8_t MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
+constexpr codon::base MARKER_LOC1_5 = static_cast<uint8_t>(0b00000100);
+constexpr codon::base MARKER_LOC1_3 = static_cast<uint8_t>(0b00001000);
+constexpr codon::base MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
 
 /* For extraction purposes:
  * MARKER_LOC2 == base 1 in triplet
@@ -24,10 +24,10 @@ constexpr std::uint8_t MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
  * base 1 is left most in the bit representation
  */
 
-constexpr std::uint8_t DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
+constexpr codon::base DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
 
-constexpr std::uint8_t VOID_5        = static_cast<uint8_t>(0b00000000);
-constexpr std::uint8_t SWITCH_5      = static_cast<uint8_t>(0b11111111);
+constexpr codon::base VOID_5        = static_cast<uint8_t>(0b00000000);
+constexpr codon::base SWITCH_5      = static_cast<uint8_t>(0b11111111);
 
 
 codon::Codon::Codon(const std::string& bases_str) {
@@ -81,8 +81,8 @@ std::size_t codon::Codon::get_bases_len() const {
 
     if (this->bases == VOID_5 || this->bases == SWITCH_5) return 0;
 
-	int marker_3 = static_cast<std::uint8_t>(this->bases & MARKER_LOC3);
-	int marker_2 = static_cast<std::uint8_t>(this->bases & MARKER_LOC2);
+	int marker_3 = static_cast<codon::base>(this->bases & MARKER_LOC3);
+	int marker_2 = static_cast<codon::base>(this->bases & MARKER_LOC2);
 
 	if 	    (marker_3 == MARKER_LOC3_5 || marker_3 == MARKER_LOC3_3) return 3;
 	else if (marker_2 == MARKER_LOC2_5 || marker_2 == MARKER_LOC2_3) return 2;
@@ -106,11 +106,11 @@ std::string codon::Codon::get_bases_str() const{
     int idx {0};
 
     while (len) {
-        std::uint8_t extracted_bits_at_len 
-            = static_cast<std::uint8_t>(T) << (len-1)*2 & this->bases;
+        codon::base extracted_bits_at_len 
+            = static_cast<codon::base>(T) << (len-1)*2 & this->bases;
 
         //Shift into position 1 and put into switch statement:
-        switch (static_cast<std::uint8_t>(extracted_bits_at_len >> (len-1)*2)) {
+        switch (static_cast<codon::base>(extracted_bits_at_len >> (len-1)*2)) {
             case A: codon_str[idx] = 'A'; break;
             case G: codon_str[idx] = 'G'; break;
             case C: codon_str[idx] = 'C'; break;
@@ -178,3 +178,27 @@ codon::base codon::Codon::squeeze_left(base new_base) {
 
     return dropped_base;
 }
+
+codon::base codon::Codon::get_base(int location=1) const {
+    //very unsafe - no exceptions
+    if (location == 1) {
+        if      (this->get_bases_len() == 3)
+            return static_cast<codon::base>((this->bases & MARKER_LOC2) >> 4);
+        else if (this->get_bases_len() == 2)
+            return static_cast<codon::base>((this->bases & MARKER_LOC1) >> 2);
+        else if (this->get_bases_len() == 1)
+            return static_cast<codon::base>(this->bases & T);
+    }
+    else if (location == 2) {
+        if      (this->get_bases_len() == 3)
+            return static_cast<codon::base>((this->bases & MARKER_LOC1) >> 2);
+        else if (this->get_bases_len() == 2)
+            return static_cast<codon::base>(this->bases & T);
+    }
+    else if (location == 3) {
+            return static_cast<codon::base>(this->bases & T);
+    }
+    PLOGF << "Trying to acces nonexisting codon";
+}
+
+

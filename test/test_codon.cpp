@@ -1,6 +1,6 @@
 #include "codon.h"
 #include "testing.h"
-#include <cassert>
+#include <catch2/catch_test_macros.hpp>
 #include <plog/Log.h>
 #include <string>
 #include <vector>
@@ -8,8 +8,8 @@
 void test::check_creation_str(std::vector<std::string> arr_bases) {
     for (std::string bases : arr_bases) {
         codon::Codon triplet_temp = codon::Codon(bases);
-        assert(bases == triplet_temp.get_bases_str());
-        assert(bases.length() == triplet_temp.get_bases_len());
+        REQUIRE(bases == triplet_temp.get_bases_str());
+        REQUIRE(bases.length() == triplet_temp.get_bases_len());
 
     }
 }
@@ -19,13 +19,14 @@ void test::check_creation_str(std::vector<std::string> arr_bases, std::vector<co
     int idx_gen = 0;
     for (std::string bases : arr_bases) {
         codon::Codon triplet_temp = codon::Codon(bases);
-        assert(bases == triplet_temp.get_bases_str());
+        REQUIRE(bases == triplet_temp.get_bases_str());
         if (triplet_temp.get_bases_len() == 0) {
             std::string codon_str = triplet_temp.get_bases_str();
-            assert(codon_str == "VOID" || codon_str == "SWITCH");
+            bool is_void_or_switch = (codon_str == "VOID" || codon_str == "SWITCH");
+            REQUIRE(is_void_or_switch == true);
         }
         else {
-            assert(bases.length() == triplet_temp.get_bases_len());
+            REQUIRE(bases.length() == triplet_temp.get_bases_len());
         }
         generator[idx_gen++] = triplet_temp;
     }
@@ -35,10 +36,10 @@ void test::check_creation_base(codon::base arr_bases[], int len) {
     while (len--) {
         codon::Codon singlet_temp = codon::Codon(arr_bases[len]);
         switch (arr_bases[len]) {
-            case codon::A: assert(singlet_temp.get_bases_str() == "A"); break;
-            case codon::G: assert(singlet_temp.get_bases_str() == "G"); break;
-            case codon::C: assert(singlet_temp.get_bases_str() == "C"); break;
-            case codon::T: assert(singlet_temp.get_bases_str() == "T"); break;
+            case codon::A: REQUIRE(singlet_temp.get_bases_str() == "A"); break;
+            case codon::G: REQUIRE(singlet_temp.get_bases_str() == "G"); break;
+            case codon::C: REQUIRE(singlet_temp.get_bases_str() == "C"); break;
+            case codon::T: REQUIRE(singlet_temp.get_bases_str() == "T"); break;
         }
     }
 }
@@ -50,7 +51,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
         if (temp_codon.get_bases_len() == 0) {
             std::bitset<8> original_void = temp_codon.get_bases_bin();
             temp_codon.cast_to_switch();
-            assert(temp_codon.get_bases_bin() == ~original_void);
+            REQUIRE(temp_codon.get_bases_bin() == ~original_void);
             continue;
         }
 
@@ -94,13 +95,14 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
                 final_codon.insert_right(dropped);
             }
         }
-        assert (temp_codon.get_bases_str() == "GGG");
-        assert (original_codon.get_bases_str() == final_codon.get_bases_str());
+        REQUIRE (temp_codon.get_bases_str() == "GGG");
+        REQUIRE (original_codon.get_bases_str() == final_codon.get_bases_str());
         switch (original_codon.get_bases_len()) {
-            case 1: assert(reverse_codon.get_bases_str() == "CAA"); break;
-            case 2: assert(reverse_codon.get_bases_str() == "CCA"); break;
-            case 3: assert(reverse_codon.get_bases_str() == "CCC"); break;
-            default: PLOGF << "get_bases_len() outside of expectancy"; assert(0 == 1);
+            case 1: REQUIRE(reverse_codon.get_bases_str() == "CAA"); break;
+            case 2: REQUIRE(reverse_codon.get_bases_str() == "CCA"); break;
+            case 3: REQUIRE(reverse_codon.get_bases_str() == "CCC"); break;
+            default: PLOGF << "get_bases_len() outside of expectancy"; 
+                     REQUIRE(0 == 1);
         }
     }
 }
@@ -129,13 +131,3 @@ int test::codon_test() {
     return 0;
 }
 
-#ifdef CODON_TEST
-
-int main () {
-
-    assert(test::codon_test() == 0);
-    PLOGD << "Passed codon test";
-    return 0;
-}
-
-#endif /* ifdef  */
