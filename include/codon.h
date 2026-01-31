@@ -24,7 +24,7 @@ namespace codon{
         std::size_t     get_bases_len() const;
         std::bitset<8>  get_bases_bin() const;
         std::string     get_bases_str() const;
-        base get_base(int location) const;
+        base get_base_at(int location) const;
 
         void cast_to_switch();
 
@@ -32,6 +32,7 @@ namespace codon{
         void insert_left    (base base);
         base squeeze_right  (base base);
         base squeeze_left   (base base);
+        base pop(int loc);
 
     };
     

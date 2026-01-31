@@ -4,17 +4,17 @@
 #include <bitset>
 #include <plog/Log.h>
 
-constexpr codon::base MARKER_LOC3_5 = static_cast<uint8_t>(0b01000000);
-constexpr codon::base MARKER_LOC3_3 = static_cast<uint8_t>(0b10000000);
-constexpr codon::base MARKER_LOC3   = static_cast<uint8_t>(0b11000000);
+constexpr std::uint8_t MARKER_LOC3_5 = static_cast<uint8_t>(0b01000000);
+constexpr std::uint8_t MARKER_LOC3_3 = static_cast<uint8_t>(0b10000000);
+constexpr std::uint8_t MARKER_LOC3   = static_cast<uint8_t>(0b11000000);
 
-constexpr codon::base MARKER_LOC2_5 = static_cast<uint8_t>(0b00010000);
-constexpr codon::base MARKER_LOC2_3 = static_cast<uint8_t>(0b00100000);
-constexpr codon::base MARKER_LOC2   = static_cast<uint8_t>(0b00110000);
+constexpr std::uint8_t MARKER_LOC2_5 = static_cast<uint8_t>(0b00010000);
+constexpr std::uint8_t MARKER_LOC2_3 = static_cast<uint8_t>(0b00100000);
+constexpr std::uint8_t MARKER_LOC2   = static_cast<uint8_t>(0b00110000);
 
-constexpr codon::base MARKER_LOC1_5 = static_cast<uint8_t>(0b00000100);
-constexpr codon::base MARKER_LOC1_3 = static_cast<uint8_t>(0b00001000);
-constexpr codon::base MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
+constexpr std::uint8_t MARKER_LOC1_5 = static_cast<uint8_t>(0b00000100);
+constexpr std::uint8_t MARKER_LOC1_3 = static_cast<uint8_t>(0b00001000);
+constexpr std::uint8_t MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
 
 /* For extraction purposes:
  * MARKER_LOC2 == base 1 in triplet
@@ -24,10 +24,10 @@ constexpr codon::base MARKER_LOC1   = static_cast<uint8_t>(0b00001100);
  * base 1 is left most in the bit representation
  */
 
-constexpr codon::base DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
+constexpr std::uint8_t DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
 
-constexpr codon::base VOID_5        = static_cast<uint8_t>(0b00000000);
-constexpr codon::base SWITCH_5      = static_cast<uint8_t>(0b11111111);
+constexpr std::uint8_t VOID_5        = static_cast<uint8_t>(0b00000000);
+constexpr std::uint8_t SWITCH_5      = static_cast<uint8_t>(0b11111111);
 
 
 codon::Codon::Codon(const std::string& bases_str) {
@@ -81,8 +81,8 @@ std::size_t codon::Codon::get_bases_len() const {
 
     if (this->bases == VOID_5 || this->bases == SWITCH_5) return 0;
 
-	int marker_3 = static_cast<codon::base>(this->bases & MARKER_LOC3);
-	int marker_2 = static_cast<codon::base>(this->bases & MARKER_LOC2);
+	int marker_3 = static_cast<std::uint8_t>(this->bases & MARKER_LOC3);
+	int marker_2 = static_cast<std::uint8_t>(this->bases & MARKER_LOC2);
 
 	if 	    (marker_3 == MARKER_LOC3_5 || marker_3 == MARKER_LOC3_3) return 3;
 	else if (marker_2 == MARKER_LOC2_5 || marker_2 == MARKER_LOC2_3) return 2;
@@ -106,11 +106,11 @@ std::string codon::Codon::get_bases_str() const{
     int idx {0};
 
     while (len) {
-        codon::base extracted_bits_at_len 
-            = static_cast<codon::base>(T) << (len-1)*2 & this->bases;
+        std::uint8_t extracted_bits_at_len 
+            = static_cast<std::uint8_t>(T) << (len-1)*2 & this->bases;
 
         //Shift into position 1 and put into switch statement:
-        switch (static_cast<codon::base>(extracted_bits_at_len >> (len-1)*2)) {
+        switch (static_cast<std::uint8_t>(extracted_bits_at_len >> (len-1)*2)) {
             case A: codon_str[idx] = 'A'; break;
             case G: codon_str[idx] = 'G'; break;
             case C: codon_str[idx] = 'C'; break;
@@ -139,21 +139,29 @@ void codon::Codon::insert_right(base base) {
     /* left -> new position 3
      * no length check necessary because that has to be done before calling the fn
      */
-    this->bases = this->bases << 2;
-    this->bases |= base;
+    if (this->get_bases_len() == 0) {
+        this->bases = (MARKER_LOC1_5 | base);
+    }
+    else {
+        this->bases = this->bases << 2;
+        this->bases |= base;
+    }
 }
 
 
 
 void codon::Codon::insert_left(base base) {
     /* left -> new position 1 */
-    if (this->get_bases_len() == 2) {
-        this->bases &= DEL_LEFT_SIDE;
-        this->bases |= (base << 4) | MARKER_LOC3_5;
+    if (this->get_bases_len() == 0) {
+        this->bases = (MARKER_LOC1_5 | base);
     }
-    else {
+    else if (this->get_bases_len() == 1) {
         this->bases &= static_cast<uint8_t>(T);
         this->bases |= (base << 2) | MARKER_LOC2_5;
+    }
+    else if (this->get_bases_len() == 2) {
+        this->bases &= DEL_LEFT_SIDE;
+        this->bases |= (base << 4) | MARKER_LOC3_5;
     }
 }
 
@@ -179,8 +187,8 @@ codon::base codon::Codon::squeeze_left(base new_base) {
     return dropped_base;
 }
 
-codon::base codon::Codon::get_base(int location=1) const {
-    //very unsafe - no exceptions
+codon::base codon::Codon::get_base_at(int location=1) const {
+    //unsafe - no exceptions added yet
     if (location == 1) {
         if      (this->get_bases_len() == 3)
             return static_cast<codon::base>((this->bases & MARKER_LOC2) >> 4);
@@ -202,3 +210,30 @@ codon::base codon::Codon::get_base(int location=1) const {
 }
 
 
+codon::base codon::Codon::pop(int loc=0) {
+    //this pops the back by default do not be confused by the default value 0, bases start at 1!
+    if (loc == 0 || loc > 3) loc = this->get_bases_len();
+
+    int offset = (this->get_bases_len()-loc)*2;
+    std::uint8_t mask_pop = static_cast<std::uint8_t>(T << offset);
+    codon::base popped_base = static_cast<codon::base>((this->bases & mask_pop) >> offset);
+    if (this->get_bases_len() == 1) {
+        this->bases = VOID_5;
+        return popped_base;
+    }
+    std::uint8_t mask_save = codon::base::A;
+    while (offset) {
+        //generate mask that preserves right side
+        mask_save <<= 2;
+        mask_save |= codon::base::T;
+        offset -= 2;
+    }
+    std::uint8_t mask_kill = ~mask_save;
+    mask_save &= this->bases;
+    this->bases >>= 2;
+    //delete and restore:
+    this->bases &= mask_kill; //sets the right side to 0s
+    this->bases |= mask_save; //restores previously saved bases
+
+    return popped_base;
+}
