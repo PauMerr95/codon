@@ -32,7 +32,7 @@ add_library(codon_lib src/codon.cpp src/seq.cpp)
 
 
 target_include_directories(codon_lib
-	PUBLIC 
+	PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/plog/include
 ncl)
@@ -62,17 +62,17 @@ target_compile_definitions(codon
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
 )
 
-
 # -- testing ---
 
 find_package(Catch2 3 REQUIRED)
 
-add_executable(testing 
+add_executable(testing
     test/test_instantiator.cpp
-    test/test_codon.cpp 
-    test/test_seq.cpp)
+    test/test_codon.cpp
+    test/test_seq.cpp
+    src/logging.cpp)
 
-target_link_libraries(testing 
+target_link_libraries(testing
     PRIVATE
     codon_lib
     plog::plog
@@ -82,3 +82,7 @@ include(CTest)
 include(Catch)
 catch_discover_tests(testing)
 
+target_compile_definitions(testing
+    PRIVATE
+    PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_test_codon.csv"
+)
