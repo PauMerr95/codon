@@ -109,9 +109,9 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
     //
     // generate pseudorandom insert and shift locations
     for (int i{0}; i < inserts.size(); ++i) {
-      shift_locations.push_back(random::get_int(1, 3));
-      insert_locations.push_back(
-          random::get_int(curr_seq.get_first_idx(), curr_seq.get_last_idx()));
+      shift_locations.push_back(randomiser::get_int(1, 3));
+      insert_locations.push_back(randomiser::get_int(curr_seq.get_first_idx(),
+                                                     curr_seq.get_last_idx()));
     }
 
     // Times 2 for shift because generated int can is one digit(1-3)+whitespace

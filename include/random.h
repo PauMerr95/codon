@@ -2,7 +2,7 @@
 #include <chrono>
 #include <random>
 
-namespace random {
+namespace randomiser {
 
 inline std::mt19937 generate() {
   std::random_device rd{};
@@ -26,4 +26,4 @@ inline int get_int(int min, int max) {
   return std::uniform_int_distribution{min, max}(mt);
 };
 
-}  // namespace random
+}  // namespace randomiser
