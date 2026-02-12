@@ -4,5 +4,4 @@ setup_config.bat
 cmake/
 .git/
 include/Catch2
-include/plog
 *.cfg
