@@ -237,7 +237,7 @@ codon::base codon::Codon::get_base_at(int location = 1) const {
 codon::base codon::Codon::pop(int loc = 0) {
   // this pops the back by default do not be confused by the default value 0,
   // bases start at 1!
-  if (loc == 0 || loc > 3) loc = this->get_bases_len();
+  if (loc == 0 || loc > this->get_bases_len()) loc = this->get_bases_len();
 
   int offset = (this->get_bases_len() - loc) * 2;
   std::uint8_t mask_pop = static_cast<std::uint8_t>(T << offset);

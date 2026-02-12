@@ -1,8 +1,12 @@
 #include <plog/Log.h>
 #include <random.h>
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
+#include <cstdlib>
+#include <exception>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -33,10 +37,18 @@ int test::seq_test() {
 
   // compiler should optimise ReturnValueOptimization
   std::vector<codon::Seq> test_sequences{seq_build(arr_seq)};
-  test::check_shifting(test_sequences);
-  PLOGD << "Check shifting completed";
-  test::check_insertion(test_sequences, vec_bases);
-  PLOGD << "Check insertion completed";
+  try {
+    test::check_shifting(test_sequences);
+    PLOGD << "Check shifting completed";
+    test::check_insertion(test_sequences, vec_bases);
+    PLOGD << "Check insertion completed";
+  } catch (std::invalid_argument &exception) {
+    PLOGF << "Invalid argument supplied: " << exception.what();
+    std::abort();
+  } catch (std::exception &exception) {
+    PLOGF << "Exception caught during testing: " << exception.what();
+    std::abort();
+  }
   /*
    *  TODO: continue here after test::check_insertion() for codon is implemented
       test::check_insertion(test_sequences, vec_codon);
@@ -87,6 +99,7 @@ void test::check_shifting(std::vector<codon::Seq> &vec_seq) {
 
 void test::check_insertion(std::vector<codon::Seq> &vec_seq,
                            std::vector<codon::base> inserts) {
+  int counter_seq{0};
   for (codon::Seq &curr_seq : vec_seq) {
     int operation_idx = 0;
     std::vector<int> shift_locations;
@@ -100,6 +113,27 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
       insert_locations.push_back(
           random::get_int(curr_seq.get_first_idx(), curr_seq.get_last_idx()));
     }
+
+    // Times 2 for shift because generated int can is one digit(1-3)+whitespace
+    // Times 11 for insert because at worst case maximum 10 digits + whitespace
+    std::string msg_shift{"Generated shift locations: "};
+    msg_shift.reserve(msg_shift.size() + (inserts.size() * 2));
+    std::string msg_insert{"Generated insert locations: "};
+    msg_insert.reserve(msg_insert.size() + (inserts.size() * 10));
+    std::for_each(
+        shift_locations.begin(), shift_locations.end(),
+        [&](const int &x) { msg_shift += (std::to_string(x) + " "); });
+    std::for_each(
+        insert_locations.begin(), insert_locations.end(),
+        [&](const int &x) { msg_insert += (std::to_string(x) + " "); });
+    msg_insert.shrink_to_fit();
+    msg_shift.shrink_to_fit();
+    PLOGD << msg_insert;
+    PLOGD << msg_shift;
+    PLOGD << "Lenght of current seq: " << curr_seq.get_seq_len();
+    PLOGD << "Trulen codon of current seq: "
+          << curr_seq.get_seq_trulen("codons");
+    int counter_bases{0};
 
     for (codon::base &curr_base : inserts) {
       std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
@@ -115,8 +149,30 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
       REQUIRE(removed_base == curr_base);
       REQUIRE(bp_prio_insert == bp_after_removal);
 
+      PLOGD << "Passed required random check for base number "
+            << ++counter_bases;
       ++operation_idx;
     }
+    PLOGD << "Passed required random checks for seq number " << ++counter_seq;
+
+    // edge case
+    PLOGD << "Prepping edge case for seq number " << counter_seq;
+    std::size_t last_idx = curr_seq.get_last_idx();
+    std::string codon_prior_insertion{
+        curr_seq.get_codon_at(last_idx).get_bases_str()};
+    PLOGD << "Final codon prior insertion: " << codon_prior_insertion;
+
+    curr_seq.insert_base(codon::base::G, last_idx, 3);
+    std::string codon_after_insertion{
+        curr_seq.get_codon_at(last_idx).get_bases_str()};
+    PLOGD << "Final codon after insertion: " << codon_after_insertion;
+
+    curr_seq.pop_base(last_idx, 3);
+    std::string codon_after_pop{
+        curr_seq.get_codon_at(last_idx).get_bases_str()};
+    PLOGD << "Final codon after removal: " << codon_after_pop;
+
+    REQUIRE(codon_prior_insertion == codon_after_pop);
   }
 }
 

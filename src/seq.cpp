@@ -293,7 +293,7 @@ std::size_t codon::Seq::get_seq_trulen(std::string how = "codons") const {
   std::size_t idx_right{this->get_last_idx()};
   std::size_t bases{0};
   if (how == "codons")
-    return idx_right - idx_left;
+    return idx_right - idx_left + 1;
   else if (how == "bp" || how == "bases") {
     std::for_each(
         this->seq.begin(), this->seq.end(),
@@ -330,7 +330,8 @@ codon::base codon::Seq::pop_base(std::size_t pop_loc, int base_loc) {
   codon::base popped_base;
   if (!this->seq.at(pop_loc).is_empty()) {
     popped_base = this->seq[pop_loc].pop(base_loc);
-    while (!this->seq.at(pop_loc).is_full()) this->left_shift(pop_loc);
+    while (!this->seq.at(pop_loc).is_full() && pop_loc < this->get_last_idx())
+      this->left_shift(pop_loc);
   } else {
     throw std::invalid_argument("Tried to use pop_base() on empty Codon");
   }

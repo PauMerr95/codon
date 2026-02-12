@@ -45,16 +45,11 @@ target_compile_options(codon_lib
 )
 
 # -- main executable / you can change the name here--
-add_subdirectory(
-    ${PROJECT_SOURCE_DIR}/include/plog
-)
-
 add_executable(codon src/main.cpp src/logging.cpp)
 
 target_link_libraries(codon
 	PRIVATE
     codon_lib
-    plog::plog
 )
 
 target_compile_definitions(codon
@@ -63,8 +58,27 @@ target_compile_definitions(codon
 )
 
 # -- testing ---
+option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 
-find_package(Catch2 3 REQUIRED)
+if(ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Coverage enabled")
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    else()
+        message(WARNING "Coverage not supported for this compiler")
+    endif()
+endif()
+
+include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.5.3
+)
+
+FetchContent_MakeAvailable(Catch2)
 
 add_executable(testing
     test/test_instantiator.cpp
@@ -75,7 +89,6 @@ add_executable(testing
 target_link_libraries(testing
     PRIVATE
     codon_lib
-    plog::plog
     Catch2::Catch2WithMain)
 
 include(CTest)
