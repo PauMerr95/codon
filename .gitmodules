@@ -1,3 +1,0 @@
-[submodule "include/3rd-party"]
-	path = include/3rd-party
-	url = https://github.com/SergiusTheBest/plog.git
