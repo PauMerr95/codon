@@ -4,6 +4,7 @@
 
 #include <bitset>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 
 constexpr std::uint8_t LOC_0_m5 = static_cast<uint8_t>(0b01000000);
@@ -66,7 +67,7 @@ codon::Codon::Codon(const std::string& bases_str) {
 
 codon::Codon::Codon(base base) { this->bases = LOC_2_m5 | base; }
 
-codon::Codon::~Codon() { PLOGD << "Codon going out of scope"; }
+codon::Codon::~Codon() {}
 
 bool codon::Codon::is_full() const { return (this->get_bases_len() == 3); }
 bool codon::Codon::is_empty() const { return (this->get_bases_len() == 0); }
@@ -225,8 +226,12 @@ codon::base codon::Codon::get_base_at(int location = 1) const {
       return static_cast<codon::base>(this->bases & T);
   } else if (location == 3) {
     return static_cast<codon::base>(this->bases & T);
+  } else {
+    std::string message =
+        "Expected location for codon to be between 1 and 3 but received ";
+    message += location;
+    throw std::invalid_argument(message);
   }
-  PLOGF << "Trying to acces nonexisting codon";
 }
 
 codon::base codon::Codon::pop(int loc = 0) {

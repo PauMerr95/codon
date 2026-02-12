@@ -18,8 +18,11 @@ class Seq {
   void insert_codon(codon::Codon codon, std::size_t insert_loc, int shift_loc);
   void insert_seq(codon::Seq other, std::size_t insert_loc, int shift_loc);
 
-  void left_shift();
-  void right_shift();
+  codon::base pop_base(std::size_t pop_loc, int base_loc);
+  codon::Codon pop_codon(std::size_t pop_loc, int base_loc, int size_cut);
+
+  void left_shift(std::size_t upto_loc);
+  void right_shift(std::size_t upto_loc);
 
   std::string get_seq_str() const;
   std::vector<std::bitset<8>> get_seq_bin() const;

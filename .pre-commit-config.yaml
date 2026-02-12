@@ -4,13 +4,13 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
-    -   id: check-yaml
-    -   id: end-of-file-fixer
-    -   id: trailing-whitespace
+    - id: check-yaml
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
 -   repo: https://github.com/psf/black
     rev: 22.10.0
     hooks:
-    -   id: black
+    - id: black
 - repo: https://github.com/pocc/pre-commit-hooks/
   rev: master
   hooks:
@@ -18,3 +18,15 @@ repos:
       args: [--style=Google, -i]
     - id: clang-tidy
       args: [--fix-errors]
+- repo: local
+  hooks:
+  - id: build
+    name: Building project in debug mode
+    entry: bash -c "cmake --build build/debug"
+    language: system
+    pass_filenames: false
+  - id: test
+    name: Running project tests in debug mode
+    entry: bash -c "ctest --test-dir=build/debug --output-on-failure"
+    language: system
+    pass_filenames: false

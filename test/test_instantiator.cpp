@@ -6,24 +6,12 @@
 
 #define CATCH_CONFIG_MAIN
 
-// Default test that is running the entire suite
-TEST_CASE("codon_lib", "[complete]") {
+TEST_CASE("codon", "[codon]") {
   SECTION("testing codon.cpp") { REQUIRE(test::codon_test() == 0); }
   PLOGD << "Passed codon test";
+}
 
+TEST_CASE("seq", "[seq]") {
   SECTION("testing seq.cpp") { REQUIRE(test::seq_test() == 0); }
-}
-
-// use ~"codon_lib"[codon] or ~[complete][codon] to run isolated test of
-// codon.cpp
-TEST_CASE("testing codon.cpp", "[.codon]") {
-  REQUIRE(test::codon_test() == 0);
-  PLOGD << "Passed codon test";
-}
-
-// You really only should be running ~[complete][seq] if you know that [codon]
-// will pass
-TEST_CASE("testing seq.cpp", "[.seq]") {
-  REQUIRE(test::seq_test() == 0);
   PLOGD << "Passed seq test";
 }

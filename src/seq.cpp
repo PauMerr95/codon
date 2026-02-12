@@ -3,6 +3,8 @@
 #include <plog/Log.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <stdexcept>
 #include <vector>
 
 #include "codon.h"
@@ -56,16 +58,16 @@ std::string codon::Seq::get_seq_str() const {
   return annealed_str;
 };
 
-void codon::Seq::left_shift() {
+void codon::Seq::left_shift(std::size_t upto_loc = 0) {
   /* removes left most base in final codon and the starts squeeze chain to the
-   * front propogating bases up until index 0 (only possible and meaningful when
-   * first codon is incomplete).
+   * front propogating bases up until upto_loc (only possible and meaningful
+   * when that codon is incomplete and everything is full inbetween).
    * -> if you want to left shift but your first codon is full you can also
    * discard one of the bases beforehand or right_shift twice to get the same
    * alignment
    */
-  std::size_t idx = this->get_last_idx();
-  std::size_t final_stop = this->get_first_idx();
+  std::size_t idx{this->get_last_idx()};
+  std::size_t final_stop{(upto_loc) ? upto_loc : this->get_first_idx()};
 
   // adjusting final stop incase get_first_idx() returns a full codon
   //(Loop will run once unless get_first_idx() is somehow broken)
@@ -73,7 +75,7 @@ void codon::Seq::left_shift() {
     --final_stop;
 
   if (this->seq.at(final_stop).get_bases_len() < 3) {
-    codon::base hopping_base = this->seq.at(idx).pop(1);
+    codon::base hopping_base{this->seq.at(idx).pop(1)};
     // removes codon if we took the last basepair
     if (this->seq.at(idx).get_bases_str() == "VOID") {
       this->seq.pop_back();
@@ -91,18 +93,19 @@ void codon::Seq::left_shift() {
   }
 }
 
-void codon::Seq::right_shift() {
+void codon::Seq::right_shift(std::size_t upto_loc = 0) {
   /* removes right-most base in the first codon and start squeeze chain to the
    * back propogating bases until the final one --> if last codon is already
    * full a new one will be generated, increasing codon::Seq::seq.size() by one
    */
   std::size_t idx{this->get_first_idx()};
+  std::size_t final_stop{(upto_loc) ? upto_loc : get_last_idx()};
 
   codon::base hopping_base = this->seq[idx].pop(this->seq[idx].get_bases_len());
   // Should this operation result in the first codon being empty it will turn
   // VOID but stay in the seq because deletion of first item is expensive.
 
-  while (++idx < this->get_last_idx()) {
+  while (++idx < final_stop) {
     hopping_base = this->seq[idx].squeeze_left(hopping_base);
   }
 
@@ -269,7 +272,7 @@ void codon::Seq::insert_seq(codon::Seq other, std::size_t insert_loc,
   };
   int bases_at_insert = this->seq[insert_loc].get_bases_len();
 
-  // REST NOT YET WORKED OUT YET
+  // TODO: insert_seq() needs to be finished
 }
 
 codon::Codon codon::Seq::get_codon_at(std::size_t pos) const {
@@ -288,16 +291,19 @@ std::size_t codon::Seq::get_seq_len() const {
 std::size_t codon::Seq::get_seq_trulen(std::string how = "codons") const {
   std::size_t idx_left{this->get_first_idx()};
   std::size_t idx_right{this->get_last_idx()};
-  // incomplete
+  std::size_t bases{0};
   if (how == "codons")
     return idx_right - idx_left;
-  else {
-    // split this into else if ("bp") and else (exception)
-    int bases_missing_left = 3 - this->seq.at(idx_left).get_bases_len();
-    int bases_missing_right = 3 - this->seq.at(idx_right).get_bases_len();
-    return (idx_right - idx_left) * 3 -
-           (bases_missing_left + bases_missing_right);
+  else if (how == "bp" || how == "bases") {
+    std::for_each(
+        this->seq.begin(), this->seq.end(),
+        [&](codon::Codon curr_codon) { bases += curr_codon.get_bases_len(); });
+  } else {
+    std::string message = "Expected 'codons', 'bp' or 'bases' but received ";
+    message += how;
+    throw std::invalid_argument(message);
   }
+  return bases;
 }
 
 std::size_t codon::Seq::get_first_idx() const {
@@ -313,4 +319,56 @@ std::size_t codon::Seq::get_last_idx() const {
     --idx_rev;
   }
   return idx_rev;
+}
+
+codon::base codon::Seq::pop_base(std::size_t pop_loc, int base_loc) {
+  // pop_loc = [0, 1, 2, ... seq.size() - 1] index of seq where pop
+  // should be taking place. shift_loc  = [1, 2, 3]
+  // After removal seq will shift left to fill hole.
+  //   [1] base_1 [2] base_2 [3] base_3
+  //   any number above 3 will be treated as 3, squeezing out prior base 3.
+  codon::base popped_base;
+  if (!this->seq.at(pop_loc).is_empty()) {
+    popped_base = this->seq[pop_loc].pop(base_loc);
+    while (!this->seq.at(pop_loc).is_full()) this->left_shift(pop_loc);
+  } else {
+    throw std::invalid_argument("Tried to use pop_base() on empty Codon");
+  }
+  return popped_base;
+}
+
+codon::Codon codon::Seq::pop_codon(std::size_t pop_loc, int shift_loc = 1,
+                                   int size_cut = 3) {
+  // pop_loc = [0, 1, 2, 3, ... seq.size()-1] index for deletion
+  // shift_loc at what base to start cutting [1 - 3]
+  // size_cut size of the codon to be removed [1 - 3]
+  // -> will overflow into next codon to reach desired size
+  int original_len = this->seq.at(pop_loc).get_bases_len();
+  codon::Codon popped_codon("VOID");
+  int overflow = (shift_loc - 1) + (size_cut - original_len);
+  if (overflow < 0) overflow = 0;
+  int cut_main = size_cut - overflow;
+
+  while (cut_main) {
+    popped_codon.insert_right(this->seq[pop_loc].pop(shift_loc));
+    --cut_main;
+  }
+  while (overflow) {
+    popped_codon.insert_right(this->seq[pop_loc + 1].pop(1));
+    --overflow;
+  }
+  // TODO: close gaps
+  int size_main = this->seq[pop_loc].get_bases_len();
+  int size_adj = this->seq[pop_loc + 1].get_bases_len();
+  while (this->seq[pop_loc].get_bases_len() < 3 &&
+         !this->seq[pop_loc + 1].is_empty()) {
+    this->seq[pop_loc].insert_right(this->seq[pop_loc + 1].pop(1));
+  }
+  if (this->seq[pop_loc + 1].is_empty()) {
+    this->seq.erase(this->seq.begin() + pop_loc + 1);
+  }
+  while (!this->seq[pop_loc + 1].is_full()) this->left_shift(pop_loc + 1);
+  while (!this->seq[pop_loc].is_full()) this->left_shift(pop_loc);
+
+  return popped_codon;
 }

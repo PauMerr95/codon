@@ -1,6 +1,8 @@
 #include <plog/Log.h>
+#include <random.h>
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -33,11 +35,9 @@ int test::seq_test() {
   std::vector<codon::Seq> test_sequences{seq_build(arr_seq)};
   test::check_shifting(test_sequences);
   PLOGD << "Check shifting completed";
+  test::check_insertion(test_sequences, vec_bases);
+  PLOGD << "Check insertion completed";
   /*
-   *  TODO: continue here after test::check_insertion() for bases is implemented
-      test::check_insertion(test_sequences, vec_bases);
-      PLOGD << "Check insertion of codon::bases completed";
-
    *  TODO: continue here after test::check_insertion() for codon is implemented
       test::check_insertion(test_sequences, vec_codon);
       PLOGD << "Check insertion of codon::Codon completed";
@@ -56,7 +56,7 @@ std::vector<codon::Seq> test::seq_build(
     REQUIRE(test_seq_temp.get_seq_str() == seq);
     vec_seq.push_back(test_seq_temp);
   }
-  // FIX: does not RVO in debug mode
+  // INFO: does not RVO in debug mode
   return vec_seq;
 }
 
@@ -68,36 +68,54 @@ void test::check_shifting(std::vector<codon::Seq> &vec_seq) {
 
   for (codon::Seq &curr_seq : vec_seq) {
     std::size_t size_before_shift = curr_seq.get_seq_len();
-    curr_seq.right_shift();
+    curr_seq.right_shift(0);
     REQUIRE(curr_seq.get_codon_at(0).get_bases_len() < 3);
-    curr_seq.left_shift();
+    curr_seq.left_shift(0);
     REQUIRE(curr_seq.get_codon_at(0).get_bases_len() == 3);
-    curr_seq.right_shift();
-    curr_seq.right_shift();
-    curr_seq.right_shift();
-    curr_seq.right_shift();
-    curr_seq.left_shift();
-    curr_seq.left_shift();
-    curr_seq.left_shift();
-    curr_seq.left_shift();
+    curr_seq.right_shift(0);
+    curr_seq.right_shift(0);
+    curr_seq.right_shift(0);
+    curr_seq.right_shift(0);
+    curr_seq.left_shift(0);
+    curr_seq.left_shift(0);
+    curr_seq.left_shift(0);
+    curr_seq.left_shift(0);
     std::size_t size_after_shift = curr_seq.get_seq_len();
     REQUIRE(size_before_shift == size_after_shift);
   }
 }
 
-void check_insertion(std::vector<codon::Seq> &vec_seq,
-                     std::vector<codon::base> inserts) {
-  int shift_loc{0};
-  int insert_loc{0};
+void test::check_insertion(std::vector<codon::Seq> &vec_seq,
+                           std::vector<codon::base> inserts) {
   for (codon::Seq &curr_seq : vec_seq) {
+    int operation_idx = 0;
+    std::vector<int> shift_locations;
+    std::vector<int> insert_locations;
+    shift_locations.reserve(inserts.size());
+    insert_locations.reserve(inserts.size());
+    //
+    // generate pseudorandom insert and shift locations
+    for (int i{0}; i < inserts.size(); ++i) {
+      shift_locations.push_back(random::get_int(1, 3));
+      insert_locations.push_back(
+          random::get_int(curr_seq.get_first_idx(), curr_seq.get_last_idx()));
+    }
+
     for (codon::base &curr_base : inserts) {
-      // test everything or generate random numbers to test?
-      if (++insert_loc >= curr_seq.get_seq_len())
-        insert_loc = insert_loc % curr_seq.get_seq_len();
-      if (++shift_loc > 3) shift_loc = 0;
-      codon::Codon previous{curr_seq.get_codon_at(insert_loc)};
-      curr_seq.insert_base(curr_base, insert_loc, shift_loc);
-      // TODO: continue here once seq.remove_base() is implemented
+      std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
+      curr_seq.insert_base(curr_base, insert_locations.at(operation_idx),
+                           shift_locations.at(operation_idx));
+      std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+      codon::base removed_base =
+          curr_seq.pop_base(insert_locations.at(operation_idx),
+                            shift_locations.at(operation_idx));
+      std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+      REQUIRE(bp_prio_insert < bp_after_insert);
+      REQUIRE(removed_base == curr_base);
+      REQUIRE(bp_prio_insert == bp_after_removal);
+
+      ++operation_idx;
     }
   }
 }
