@@ -33,6 +33,19 @@ constexpr std::uint8_t DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
 constexpr std::uint8_t VOID_5 = static_cast<uint8_t>(0b00000000);
 constexpr std::uint8_t SWITCH_5 = static_cast<uint8_t>(0b11111111);
 
+char codon::base_to_str(codon::base base) {
+  switch (base) {
+    case codon::base::A:
+      return 'A';
+    case codon::base::G:
+      return 'G';
+    case codon::base::C:
+      return 'C';
+    case codon::base::T:
+      return 'T';
+  }
+}
+
 codon::Codon::Codon(const std::string& bases_str) {
   /* This function builds the bases from string using a 16bit generator.
    * This is probably not necessary but it was one of the things I added during
@@ -175,7 +188,7 @@ void codon::Codon::insert_left(codon::base base) {
     this->bases |= (base << 2) | LOC_1_m5;
   } else if (this->get_bases_len() == 2) {
     this->bases &= DEL_LEFT_SIDE;
-    this->bases |= (base << 4) | LOC_0_m5;
+    this->bases |= static_cast<std::uint8_t>((base << 4) | LOC_0_m5);
   }
 }
 
@@ -202,11 +215,10 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
    * the fn if your len < 3 already use insert_right()
    */
   enum codon::base dropped_base =
-      static_cast<enum codon::base>((this->bases & T));
+      static_cast<codon::base>((this->bases & codon::base::T));
   this->bases >>= 2;
   this->bases &= DEL_LEFT_SIDE;
   this->bases |= static_cast<uint8_t>(new_base << 4) | LOC_0_m5;
-
   return dropped_base;
 }
 

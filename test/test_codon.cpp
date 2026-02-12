@@ -63,6 +63,12 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
     }
 
     codon::Codon original_codon = temp_codon;
+    if (original_codon.get_bases_len() > 0) {
+      codon::base dropped = temp_codon.pop(1);
+      REQUIRE(temp_codon.get_bases_len() < original_codon.get_bases_len());
+      temp_codon.insert_left(dropped);
+      REQUIRE(temp_codon.get_bases_str() == original_codon.get_bases_str());
+    }
     codon::Codon reverse_codon = codon::Codon("VOID");
     codon::Codon final_codon = codon::Codon("VOID");
 

@@ -46,15 +46,12 @@ codon::Seq::~Seq() {
 
 std::string codon::Seq::get_seq_str() const {
   std::string annealed_str;
-  annealed_str.reserve(this->seq.size() * 3);
+  annealed_str.reserve(this->seq.size() * 4);
 
   for (codon::Codon curr_codon : this->seq) {
     annealed_str.append(curr_codon.get_bases_str());
-    PLOGD << "Appending '" << curr_codon.get_bases_str()
-          << "' to annealed_str.";
   }
   annealed_str.shrink_to_fit();
-  PLOGD << "Generated final string: '" << annealed_str << "'.";
   return annealed_str;
 };
 
@@ -68,15 +65,19 @@ void codon::Seq::left_shift(std::size_t upto_loc = 0) {
    */
   std::size_t idx{this->get_last_idx()};
   std::size_t final_stop{(upto_loc) ? upto_loc : this->get_first_idx()};
+  int size_at_upto_loc = this->seq.at(final_stop).get_bases_len() < 3;
 
-  // adjusting final stop incase get_first_idx() returns a full codon
-  //(Loop will run once unless get_first_idx() is somehow broken)
-  while (this->seq.at(final_stop).get_bases_len() > 2 && final_stop)
-    --final_stop;
+  // INFO: Early return for edge case during pop_base() at the final codon,
+  // might otherwise result in weird stuff.
+  if (final_stop == idx) return;
+
+  // INFO: Final stop correction in case the first idx is displaced by a VOID
+  while (this->seq.at(final_stop).is_full() && final_stop > 0) --final_stop;
 
   if (this->seq.at(final_stop).get_bases_len() < 3) {
-    codon::base hopping_base{this->seq.at(idx).pop(1)};
-    // removes codon if we took the last basepair
+    codon::base hopping_base{this->seq[idx].pop(1)};
+    // TODO: If buffer is implemented this needs to be changed
+    // Currently removes codon if we took the last basepair
     if (this->seq.at(idx).get_bases_str() == "VOID") {
       this->seq.pop_back();
     }
@@ -87,9 +88,9 @@ void codon::Seq::left_shift(std::size_t upto_loc = 0) {
     }
     this->seq[idx].insert_right(hopping_base);
   } else {
-    PLOGF
-        << "LEFT SHIFT ATTEMPTED WITHOUT ENOUGH SPACE. FUNCTION CALL ABORTED.";
-    return;
+    throw std::invalid_argument(
+        "Attempted to shift left but provided upto_loc and every prior Codon "
+        "is full");
   }
 }
 
@@ -156,27 +157,27 @@ void codon::Seq::insert_base(codon::base base, std::size_t insert_loc,
 
   switch (shift_loc) {
     case 1: {
-      codon::base hopping_base = this->seq[insert_loc].squeeze_left(base);
+      hopping_base = this->seq[insert_loc].squeeze_left(base);
       break;
     }
     case 2: {
-      codon::base hopping_base = this->seq[insert_loc].pop(3);
+      hopping_base = this->seq[insert_loc].pop(3);
       codon::base temp = this->seq[insert_loc].pop(2);
       this->seq[insert_loc].insert_right(base);
       this->seq[insert_loc].insert_right(temp);
       break;
     }
     case 3: {
-      codon::base hopping_base = this->seq[insert_loc].pop(3);
+      hopping_base = this->seq[insert_loc].pop(3);
       this->seq[insert_loc].insert_right(base);
       break;
     }
   }
   ++insert_loc;
 
-  while (insert_loc != this->seq.size()) {
+  while (insert_loc <= this->get_last_idx()) {
     if (this->seq[insert_loc].get_bases_len() == 3)
-      this->seq[insert_loc].squeeze_left(hopping_base);
+      hopping_base = this->seq[insert_loc].squeeze_left(hopping_base);
     else {
       this->seq[insert_loc].insert_left(hopping_base);
       return;
@@ -188,6 +189,7 @@ void codon::Seq::insert_base(codon::base base, std::size_t insert_loc,
    * make a new codon can lead to resizing but effect is minimal because of
    * existing buffer
    */
+  // TODO: Change this to be more specific in case I want to implement a buffer
   this->seq.emplace_back(codon::Codon(hopping_base));
 }
 
@@ -295,9 +297,10 @@ std::size_t codon::Seq::get_seq_trulen(std::string how = "codons") const {
   if (how == "codons")
     return idx_right - idx_left + 1;
   else if (how == "bp" || how == "bases") {
-    std::for_each(
-        this->seq.begin(), this->seq.end(),
-        [&](codon::Codon curr_codon) { bases += curr_codon.get_bases_len(); });
+    std::for_each(this->seq.begin(), this->seq.end(),
+                  [&](const codon::Codon &curr_codon) {
+                    bases += curr_codon.get_bases_len();
+                  });
   } else {
     std::string message = "Expected 'codons', 'bp' or 'bases' but received ";
     message += how;
@@ -328,12 +331,11 @@ codon::base codon::Seq::pop_base(std::size_t pop_loc, int base_loc) {
   //   [1] base_1 [2] base_2 [3] base_3
   //   any number above 3 will be treated as 3, squeezing out prior base 3.
   codon::base popped_base;
-  if (!this->seq.at(pop_loc).is_empty()) {
-    popped_base = this->seq[pop_loc].pop(base_loc);
-    while (!this->seq.at(pop_loc).is_full() && pop_loc < this->get_last_idx())
-      this->left_shift(pop_loc);
-  } else {
+  if (this->get_codon_at(pop_loc).is_empty()) {
     throw std::invalid_argument("Tried to use pop_base() on empty Codon");
+  } else {
+    popped_base = this->seq[pop_loc].pop(base_loc);
+    this->left_shift(pop_loc);
   }
   return popped_base;
 }

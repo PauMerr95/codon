@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "codon.h"
 #include "seq.h"
 #include "testing.h"
 
@@ -130,20 +131,28 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
     msg_shift.shrink_to_fit();
     PLOGD << msg_insert;
     PLOGD << msg_shift;
-    PLOGD << "Lenght of current seq: " << curr_seq.get_seq_len();
-    PLOGD << "Trulen codon of current seq: "
-          << curr_seq.get_seq_trulen("codons");
+    PLOGD << "Trulen bases of current seq: " << curr_seq.get_seq_trulen("bp");
     int counter_bases{0};
+    PLOGD << "Current Sequence: " << curr_seq.get_seq_str();
 
     for (codon::base &curr_base : inserts) {
+      PLOGD << "Inserting '" << codon::base_to_str(curr_base)
+            << "' into location " << insert_locations.at(operation_idx)
+            << " with shift " << shift_locations.at(operation_idx);
+
       std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
       curr_seq.insert_base(curr_base, insert_locations.at(operation_idx),
                            shift_locations.at(operation_idx));
       std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+
+      PLOGD << "Sequence after insertion: " << curr_seq.get_seq_str();
+
       codon::base removed_base =
           curr_seq.pop_base(insert_locations.at(operation_idx),
                             shift_locations.at(operation_idx));
       std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+      PLOGD << "Sequence after restoral: " << curr_seq.get_seq_str();
 
       REQUIRE(bp_prio_insert < bp_after_insert);
       REQUIRE(removed_base == curr_base);
@@ -155,8 +164,8 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
     }
     PLOGD << "Passed required random checks for seq number " << ++counter_seq;
 
-    // edge case
-    PLOGD << "Prepping edge case for seq number " << counter_seq;
+    // edge case high:
+    PLOGD << "Prepping edge case high for seq number " << counter_seq;
     std::size_t last_idx = curr_seq.get_last_idx();
     std::string codon_prior_insertion{
         curr_seq.get_codon_at(last_idx).get_bases_str()};
@@ -171,6 +180,28 @@ void test::check_insertion(std::vector<codon::Seq> &vec_seq,
     std::string codon_after_pop{
         curr_seq.get_codon_at(last_idx).get_bases_str()};
     PLOGD << "Final codon after removal: " << codon_after_pop;
+
+    REQUIRE(codon_prior_insertion == codon_after_pop);
+
+    // edge case low:
+    PLOGD << "Prepping edge case low for seq number " << counter_seq;
+    std::size_t first_idx = curr_seq.get_first_idx();
+    codon_prior_insertion = curr_seq.get_codon_at(first_idx).get_bases_str();
+    PLOGD << "First codon prior insertion: " << codon_prior_insertion;
+    PLOGD << "Second codon prior insertion: "
+          << curr_seq.get_codon_at(first_idx + 1).get_bases_str();
+
+    curr_seq.insert_base(codon::base::C, first_idx, 1);
+    codon_after_insertion = curr_seq.get_codon_at(first_idx).get_bases_str();
+    PLOGD << "First codon after insertion: " << codon_after_insertion;
+    PLOGD << "Second codon after insertion: "
+          << curr_seq.get_codon_at(first_idx + 1).get_bases_str();
+
+    curr_seq.pop_base(first_idx, 1);
+    codon_after_pop = curr_seq.get_codon_at(first_idx).get_bases_str();
+    PLOGD << "First codon after removal: " << codon_after_pop;
+    PLOGD << "Second codon after removal: "
+          << curr_seq.get_codon_at(first_idx + 1).get_bases_str();
 
     REQUIRE(codon_prior_insertion == codon_after_pop);
   }

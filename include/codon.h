@@ -7,6 +7,8 @@ namespace codon {
 
 enum base : std::uint8_t { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
 
+char base_to_str(base base);
+
 class Codon {
   std::uint8_t bases{0};
 
