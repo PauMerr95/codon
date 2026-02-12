@@ -24,8 +24,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_BASE}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_BASE}/${CMAKE_INSTALL_LIBDIR})
 
 # -- import compilation option (can be separately changed in cmake/compiler_options.cmake
+# -- you can add your own or use the default flags
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(compiler_options)
+include(compiler_options OPTIONAL RESULT_VARIABLE compiler_opts_loaded_locally)
+
+if(NOT compiler_opts_loaded_locally)
+  message(WARNING "compiler_options.cmake not found. Reverting to default flags.")
+  set(codon_WARNING_FLAGS "")
+  set(codon_BUILD_FLAGS "")
+endif()
 
 # -- specify libraries used --
 add_library(codon_lib src/codon.cpp src/seq.cpp)
@@ -35,7 +42,7 @@ target_include_directories(codon_lib
 	PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/plog/include
-ncl)
+)
 
 # -- imported compiler options --
 target_compile_options(codon_lib
