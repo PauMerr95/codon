@@ -138,7 +138,7 @@ jobs:
 
       - name: Capture coverage
         run: |
-          lcov --capture --directory build --output-file coverage.info
+          lcov --capture --directory build --output-file coverage.info --ignore-errors source
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
           lcov --remove coverage.info '*/_deps/*' --output-file coverage.info
 

@@ -65,6 +65,16 @@ target_compile_definitions(codon
 )
 
 # -- testing ---
+include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.5.3
+)
+
+FetchContent_MakeAvailable(Catch2)
+
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 
 if(ENABLE_COVERAGE)
@@ -76,16 +86,6 @@ if(ENABLE_COVERAGE)
         message(WARNING "Coverage not supported for this compiler")
     endif()
 endif()
-
-include(FetchContent)
-
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG v3.5.3
-)
-
-FetchContent_MakeAvailable(Catch2)
 
 add_executable(testing
     test/test_instantiator.cpp
