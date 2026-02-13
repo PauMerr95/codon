@@ -1,5 +1,5 @@
 ![Build](https://github.com/PauMerr95/codon/actions/workflows/cmake-multi-platform.yml/badge.svg?job=build&event=push)
-![Coverage](https://github.com/PauMerr95/codon/actions/workflows/cmake-multi-platform.yml/badge.svg?job=coverage&event=push)
+![coverage](https://codecov.io/github/PauMerr95/codon/branch/main/graph/badge.svg)
 
 🧬 Codon is a small C++ library to store a codon in a single byte to perform fast bit-manipulation operations for high-throughput nucleotide data processing. 🧬
 
