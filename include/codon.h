@@ -21,7 +21,7 @@ class Codon {
   bool is_empty() const;
 
   int get_bases_int() const;
-  std::size_t get_bases_len() const;
+  int get_bases_len() const;
   std::bitset<8> get_bases_bin() const;
   std::string get_bases_str() const;
   base get_base_at(int location) const;

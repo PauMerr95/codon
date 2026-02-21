@@ -96,7 +96,7 @@ int codon::Codon::get_bases_int() const {
 /* This function returns the length of the inserted bases.
  * For void and switch codons it returns 0;
  */
-std::size_t codon::Codon::get_bases_len() const {
+int codon::Codon::get_bases_len() const {
   if (this->bases == VOID_5 || this->bases == SWITCH_5) return 0;
 
   int marker_3 = static_cast<std::uint8_t>(this->bases & LOC_0);
@@ -222,27 +222,31 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
   return dropped_base;
 }
 
-codon::base codon::Codon::get_base_at(int location = 1) const {
-  //!!! unsafe - no exceptions added yet
-  if (location == 1) {
-    if (this->get_bases_len() == 3)
-      return static_cast<codon::base>((this->bases & LOC_1) >> 4);
-    else if (this->get_bases_len() == 2)
-      return static_cast<codon::base>((this->bases & LOC_2) >> 2);
-    else if (this->get_bases_len() == 1)
+codon::base codon::Codon::get_base_at(int shift = 1) const {
+  switch (shift) {
+    case 1: {
+      if (this->get_bases_len() == 3)
+        return static_cast<codon::base>((this->bases & LOC_1) >> 4);
+      else if (this->get_bases_len() == 2)
+        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+      else if (this->get_bases_len() == 1)
+        return static_cast<codon::base>(this->bases & T);
+    }
+    case 2: {
+      if (this->get_bases_len() == 3)
+        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+      else if (this->get_bases_len() == 2)
+        return static_cast<codon::base>(this->bases & T);
+    }
+    case 3: {
       return static_cast<codon::base>(this->bases & T);
-  } else if (location == 2) {
-    if (this->get_bases_len() == 3)
-      return static_cast<codon::base>((this->bases & LOC_2) >> 2);
-    else if (this->get_bases_len() == 2)
-      return static_cast<codon::base>(this->bases & T);
-  } else if (location == 3) {
-    return static_cast<codon::base>(this->bases & T);
-  } else {
-    std::string message =
-        "Expected location for codon to be between 1 and 3 but received ";
-    message += location;
-    throw std::invalid_argument(message);
+    }
+    default: {
+      std::string message =
+          "Expected shift for codon to be between 1 and 3 but received ";
+      message += (std::to_string(shift) + ".");
+      throw std::invalid_argument(message);
+    }
   }
 }
 
