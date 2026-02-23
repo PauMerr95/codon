@@ -250,9 +250,9 @@ codon::base codon::Codon::get_base_at(int shift = 1) const {
   }
 }
 
-codon::base codon::Codon::pop(int loc = 0) {
-  // this pops the back by default do not be confused by the default value 0,
-  // bases start at 1!
+codon::base codon::Codon::pop(int loc) {
+  /* removes the base to the furthest right by default
+   */
   if (loc == 0 || loc > this->get_bases_len()) loc = this->get_bases_len();
 
   int offset = (this->get_bases_len() - loc) * 2;

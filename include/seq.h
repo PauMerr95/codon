@@ -11,6 +11,31 @@ struct locator {
   std::size_t index;
 
   locator(std::size_t index, int shift = 0);
+
+  bool operator>(const codon::locator& other) {
+    return (this->index > other.index ||
+            ((this->index == other.index) && (this->shift > other.shift)));
+  }
+  bool operator>=(const codon::locator& other) {
+    return (this->index > other.index ||
+            ((this->index == other.index) && (this->shift >= other.shift)));
+  }
+  bool operator<(const codon::locator& other) {
+    return (this->index < other.index ||
+            ((this->index == other.index) && (this->shift < other.shift)));
+  }
+  bool operator<=(const codon::locator& other) {
+    return (this->index < other.index ||
+            ((this->index == other.index) && (this->shift <= other.shift)));
+  }
+  bool operator==(const codon::locator& other) {
+    return ((this->index == other.index) && (this->shift == other.shift));
+  }
+  bool operator!=(const codon::locator& other) {
+    return ((this->index != other.index) || (this->shift != other.shift));
+  }
+
+  void verify_shift();
 };
 
 class Seq {
@@ -41,6 +66,8 @@ class Seq {
   std::size_t get_last_idx() const;
   codon::locator get_first_loc() const;
   codon::locator get_last_loc() const;
+
+  bool is_locator_valid(codon::locator locator);
 };
 
 }  // namespace codon

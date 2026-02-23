@@ -32,7 +32,7 @@ class Codon {
   void insert_left(base base);
   base squeeze_right(base base);
   base squeeze_left(base base);
-  base pop(int loc);
+  base pop(int loc = 0);
 };
 
 }  // namespace codon

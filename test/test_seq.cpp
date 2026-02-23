@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -41,21 +42,22 @@ int test::seq_test() {
   try {
     test::check_shifting(test_sequences);
     PLOGD << "Check shifting completed";
+
     test::check_insertions_bases(test_sequences, vec_bases);
-    PLOGD << "Check insertion completed";
+    PLOGD << "Check insertions_bases completed";
+
+    test::check_insertions_codons(test_sequences, vec_codon);
+    PLOGD << "Check insertions_codons completed";
 
   } catch (std::invalid_argument &exception) {
     PLOGF << "Invalid argument supplied: " << exception.what();
+    std::cerr << "Invalid argument supplied: " << exception.what();
     std::abort();
   } catch (std::exception &exception) {
     PLOGF << "Exception caught during testing: " << exception.what();
+    std::cerr << "Exception caught during testing: " << exception.what();
     std::abort();
   }
-  /*
-   *  TODO: continue here after test::check_insertion() for codon is implemented
-      test::check_insertion(test_sequences, vec_codon);
-      PLOGD << "Check insertion of codon::Codon completed";
-  */
 
   return 0;
 }
@@ -237,17 +239,25 @@ void test::check_insertions_codons(std::vector<codon::Seq> &vec_seq,
     PLOGD << "Passed required random checks for seq number " << ++counter_seq;
 
     // edge case high:
-    check_insertion_codon(curr_seq, codon::Codon("AG"),
-                          codon::locator(curr_seq.get_last_idx(), 3));
-    check_insertion_codon(curr_seq, codon::Codon("VOID"),
-                          codon::locator(curr_seq.get_last_idx(), 2));
+    std::size_t last_idx{curr_seq.get_last_idx()};
+    std::size_t first_idx{curr_seq.get_first_idx()};
+    check_insertion_codon(
+        curr_seq, codon::Codon("AG"),
+        codon::locator(last_idx,
+                       curr_seq.get_codon_at(last_idx).get_bases_len()));
+    check_insertion_codon(
+        curr_seq, codon::Codon("VOID"),
+        codon::locator(curr_seq.get_last_idx(),
+                       curr_seq.get_codon_at(last_idx).get_bases_len()));
     check_insertion_codon(curr_seq, codon::Codon("TAA"),
                           curr_seq.get_last_loc());
     // edge case low:
     check_insertion_codon(curr_seq, codon::Codon("CTT"),
-                          codon::locator(curr_seq.get_first_idx(), 1));
-    check_insertion_codon(curr_seq, codon::Codon("VOID"),
-                          codon::locator(curr_seq.get_first_idx(), 2));
+                          codon::locator(first_idx, 1));
+    check_insertion_codon(
+        curr_seq, codon::Codon("VOID"),
+        codon::locator(first_idx,
+                       curr_seq.get_codon_at(last_idx).get_bases_len()));
     check_insertion_codon(curr_seq, codon::Codon("ATG"),
                           curr_seq.get_first_loc());
     PLOGD << "Passed required edge case checks for seq number " << counter_seq;
@@ -258,22 +268,30 @@ void test::check_insertion_codon(codon::Seq &seq, codon::Codon insert,
                                  codon::locator locator) {
   PLOGD << "Inserting '" << insert.get_bases_str() << "' into location "
         << locator.index << " with shift " << locator.shift;
+  if (insert.is_empty()) {
+    PLOGD << "Edge case: empty codon provided for insert_codon";
+    REQUIRE_THROWS(seq.insert_codon(insert, locator));
+    PLOGD << "Edge case: Passed!";
+  } else {
+    std::size_t bp_prio_insert{seq.get_seq_trulen("bp")};
+    PLOGD << "Sequence before insertion: " << seq.get_seq_str();
+    std::string codonstr_before_insert{
+        seq.get_codon_at(locator).get_bases_str()};
+    seq.insert_codon(insert, locator);
+    std::size_t bp_post_insert{seq.get_seq_trulen("bp")};
 
-  std::size_t bp_prio_insert{seq.get_seq_trulen("bp")};
-  std::string codonstr_before_insert{seq.get_codon_at(locator).get_bases_str()};
-  seq.insert_codon(insert, locator);
-  std::size_t bp_post_insert{seq.get_seq_trulen("bp")};
+    PLOGD << "Sequence after insertion: " << seq.get_seq_str();
 
-  PLOGD << "Sequence after insertion: " << seq.get_seq_str();
+    codon::Codon removed_codon = seq.pop_codon(locator, insert.get_bases_len());
+    std::size_t bp_post_removal{seq.get_seq_trulen("bp")};
+    std::string codonstr_post_removal{
+        seq.get_codon_at(locator).get_bases_str()};
 
-  codon::Codon removed_codon = seq.pop_codon(locator, insert.get_bases_len());
-  std::size_t bp_post_removal{seq.get_seq_trulen("bp")};
-  std::string codonstr_post_removal{seq.get_codon_at(locator).get_bases_str()};
+    PLOGD << "Sequence after restoral: " << seq.get_seq_str();
 
-  PLOGD << "Sequence after restoral: " << seq.get_seq_str();
-
-  REQUIRE(bp_prio_insert + insert.get_bases_len() == bp_post_insert);
-  REQUIRE(removed_codon.get_bases_str() == insert.get_bases_str());
-  REQUIRE(bp_prio_insert == bp_post_removal);
-  REQUIRE(codonstr_before_insert == codonstr_post_removal);
+    REQUIRE(bp_prio_insert + insert.get_bases_len() == bp_post_insert);
+    REQUIRE(removed_codon.get_bases_str() == insert.get_bases_str());
+    REQUIRE(bp_prio_insert == bp_post_removal);
+    REQUIRE(codonstr_before_insert == codonstr_post_removal);
+  }
 }

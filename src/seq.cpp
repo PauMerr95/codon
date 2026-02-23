@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <exception>
 #include <stdexcept>
 #include <vector>
 
@@ -188,73 +189,86 @@ void codon::Seq::insert_base(codon::base base, codon::locator locator) {
 
 void codon::Seq::insert_codon(codon::Codon codon_insert,
                               codon::locator locator) {
-  // locator.index = [0, 1, ..., this->seq.size()-1] index of seq where
-  // insertions should be taking place shift_loc  = [0, 1, 2] where insertion
-  // will happen in codon:
-  //   [0] base_1 [1] base_2 [2] base_3 --> [3] is not necessary; just use 0 in
-  //   next Codon] any number above 2 will be treated as 2, squeezing out
-  //   base 3
+  /* insert a codon into sequence, squeezing it into already existing
+   * codon(s) when locator.shift > 0, will split codon if VOID is provided
+   */
+  locator.verify_shift();
+  if (!this->is_locator_valid(locator)) {
+    throw std::invalid_argument(
+        "Passed codon::locator to insert_codon is outside of valid range.");
+  }
+  if (codon_insert.is_empty()) {
+    throw std::invalid_argument("Passed empty codon to insert_codon.");
+  }
+  int size_original = this->seq[locator.index].get_bases_len();
+  int size_insert = codon_insert.get_bases_len();
 
-  int size_main = this->seq[locator.index].get_bases_len();
-  int size_other = codon_insert.get_bases_len();
-  // edge case: locator.index and insert can fit in the already existing codon
-  if (size_main + size_other < 3) {
-    while (size_other--) {
-      // popping and insert from reverse so that locator.index can be reused for
-      // all insertions.
+  // early exit for edge-case: insert can fit in location
+  if (size_original + size_insert <= 3) {
+    while (size_insert--) {
+      /* INFO: This will momentarily use an invalidated locator when pop removes
+       * only available base at end, creating an intermediate VOID for
+       * insert_base. Codon::pop() does not delete empty codons.
+       */
       this->insert_base(codon_insert.pop(codon_insert.get_bases_len()),
                         locator);
-      return;
     }
+    return;
   }
-  // make space and new buffer if completely full
-  if ((this->seq.size() + 1) < this->seq.capacity()) {
-    this->seq.reserve((this->seq.size() + 1) * 1.2);
+
+  // make space and new buffer if not large enough
+  if ((this->seq.size() + 2) < this->seq.capacity()) {
+    this->seq.reserve(static_cast<std::size_t>((this->seq.size() + 2) * 1.2));
     PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
   }
 
-  // STEP 1 REARRANGE AND COMBINE - determine how much is right of shift_loc
-  int amount_switch = this->seq[locator.index].get_bases_len() - locator.shift;
-  codon::Codon temp_reversed = Codon("VOID");
-  while (amount_switch--) {
-    temp_reversed.insert_right(this->seq[locator.index].pop(0));
+  // STEP 1 REARRANGE AND COMBINE
+  int amount_expelled =
+      this->seq[locator.index].get_bases_len() - locator.shift + 1;
+  codon::Codon expelled = Codon("VOID");
+  while (amount_expelled--) {
+    expelled.insert_left(this->seq[locator.index].pop());
   }
+  PLOGD << "Expelled necessary bases from location: " << locator.index
+        << ". Remaining: " << this->seq[locator.index].get_bases_str()
+        << ", Expelled: " << expelled.get_bases_str() << ".";
+
   // fill up original locator.index codon
-  while (this->seq[locator.index].get_bases_len() < 3) {
+  while (!this->seq[locator.index].is_full()) {
     if (codon_insert.get_bases_len() > 0)
       this->seq[locator.index].insert_right(codon_insert.pop(1));
-    if (temp_reversed.get_bases_len() > 0)
-      codon_insert.insert_right(temp_reversed.pop(0));
-  }
-  while (temp_reversed.get_bases_len() > 0)
-    codon_insert.insert_right(temp_reversed.pop(0));
-
-  // STEP 2 PUSH THAT INSERT IN (at this point we should be complete with the
-  // original locator.index)
-  switch (codon_insert.get_bases_len()) {
-    case 1:
-      this->insert_base(codon_insert.get_base_at(1), locator.index + 1);
-      break;
-    case 2: {
-      // There is definitely a better way to do this but this will do for now
-      std::vector<codon::Codon>::iterator it_seq =
-          this->seq.begin() + locator.index + 1;
-      this->seq.insert(it_seq, codon_insert);
-
-      std::size_t rev_idx{this->seq.size() - 1};
-      codon::base hopping_base = this->seq[rev_idx].pop(1);
-
-      while (--rev_idx > locator.index + 1) {
-        hopping_base = this->seq[rev_idx].squeeze_right(hopping_base);
+    else if (expelled.get_bases_len() > 0)
+      codon_insert.insert_right(expelled.pop(1));
+    else {
+      if (locator.index < this->get_last_idx()) {
+        left_shift(locator.index);
+      } else {
+        break;
       }
-      this->seq[rev_idx].insert_right(hopping_base);
-      return;
     }
-    case 3:
-      std::vector<codon::Codon>::iterator it_seq =
-          this->seq.begin() + locator.index + 1;
-      this->seq.insert(it_seq, codon_insert);
-      return;
+  }
+  /* releasing the expelled codon by putting everythin left into
+   * the insert. This should never overflow ...
+   */
+  while (expelled.get_bases_len() > 0)
+    codon_insert.insert_right(expelled.pop(1));
+
+  // STEP 2 PUSH THAT INSERT IN
+  if (locator.index == this->get_last_idx()) {
+    this->seq.emplace_back(std::move(codon_insert));
+  } else {
+    std::vector<codon::Codon>::iterator it_seq{this->seq.begin() +
+                                               locator.index + 1};
+    this->seq.insert(it_seq, std::move(codon_insert));
+
+    while (this->seq[locator.index + 1].get_bases_len() < 3 &&
+           (locator.index + 1 < this->get_last_idx())) {
+      this->left_shift(locator.index + 1);
+    }
+    while (this->seq[locator.index].get_bases_len() < 3 &&
+           (locator.index < this->get_last_idx())) {
+      this->left_shift(locator.index);
+    }
   }
 }
 
@@ -343,36 +357,49 @@ codon::base codon::Seq::pop_base(codon::locator locator) {
 }
 
 codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
-  // locator.index = [0, 1, 2, 3, ... seq.size()-1] index for deletion
-  // shift_loc at what base to start cutting [1 - 3]
-  // size_cut size of the codon to be removed [1 - 3]
-  // -> will overflow into next codon to reach desired size
-  int original_len = this->seq.at(locator.index).get_bases_len();
+  /* size_cut defaults to three but will remove less
+   * if <3 bases are availabel
+   */
+
+  // edge case: size_cut = 0
   codon::Codon popped_codon("VOID");
+  if (size_cut <= 0) {
+    return popped_codon;
+  }
+
+  int original_len = this->seq.at(locator.index).get_bases_len();
   int overflow = (locator.shift - 1) + (size_cut - original_len);
   if (overflow < 0) overflow = 0;
   int cut_main = size_cut - overflow;
+  PLOGD << "Calculated overflow = " << overflow << " (shift = " << locator.shift
+        << ", original_len = " << original_len << ", size_cut = " << size_cut
+        << ") and cut main = " << cut_main;
 
   while (cut_main) {
     popped_codon.insert_right(this->seq[locator.index].pop(locator.shift));
     --cut_main;
   }
-  while (overflow) {
+  while (overflow && (locator.index < this->get_last_idx())) {
     popped_codon.insert_right(this->seq[locator.index + 1].pop(1));
     --overflow;
   }
+
+  // early exit in case we end section was removed
+  if (locator.index >= this->get_last_idx()) {
+    return popped_codon;
+  }
+
+  // Filling in the created gaps by shifting the codons
   int size_main = this->seq[locator.index].get_bases_len();
   int size_adj = this->seq[locator.index + 1].get_bases_len();
-  while (this->seq[locator.index].get_bases_len() < 3 &&
-         !this->seq[locator.index + 1].is_empty()) {
-    this->seq[locator.index].insert_right(this->seq[locator.index + 1].pop(1));
-  }
-  if (this->seq[locator.index + 1].is_empty()) {
-    this->seq.erase(this->seq.begin() + locator.index + 1);
-  }
-  while (!this->seq[locator.index + 1].is_full())
+  while (size_adj < 3 && (locator.index + 1 < this->get_last_idx())) {
     this->left_shift(locator.index + 1);
-  while (!this->seq[locator.index].is_full()) this->left_shift(locator.index);
+    ++size_adj;
+  }
+  while (size_main < 3 && (locator.index < this->get_last_idx())) {
+    this->left_shift(locator.index);
+    ++size_main;
+  }
 
   return popped_codon;
 }
@@ -388,8 +415,18 @@ codon::locator codon::Seq::get_last_loc() const {
   return codon::locator(idx, shift);
 }
 
+bool codon::Seq::is_locator_valid(codon::locator locator) {
+  return (locator >= this->get_first_loc() && locator <= this->get_last_loc());
+}
+
 codon::locator::locator(std::size_t index, int shift)
     : shift{shift}, index{index} {
   if (shift > 3) this->shift = 3;
   if (shift < 0) this->shift = 0;
+}
+
+void codon::locator::verify_shift() {
+  if (this->shift < 1 || this->shift > 3)
+    throw std::exception(
+        "verify_shift for codon::locator failed => shift is out of scope.");
 }

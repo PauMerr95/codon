@@ -14,6 +14,12 @@ void check_creation_str(std::vector<std::string> arr_bases,
 void check_creation_base(codon::base arr_bases[], int len);
 void check_operations(std::vector<codon::Codon> arr_codons);
 
+int locator_test();
+std::vector<codon::locator> check_locator_creation();
+void check_locator_comparisons(const std::vector<codon::locator> &vec_locator);
+void check_locator_methods();
+void check_locator_validation();
+
 int seq_test();
 int get_random(int low, int high);
 std::vector<codon::Seq> seq_build(

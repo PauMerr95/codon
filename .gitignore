@@ -1,4 +1,5 @@
 build/
+Testing/
 .cache/
 setup_config.bat
 cmake/
