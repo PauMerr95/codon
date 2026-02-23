@@ -11,7 +11,12 @@ TEST_CASE("codon", "[codon]") {
   PLOGD << "Passed codon test";
 }
 
+TEST_CASE("locator", "[seq]") {
+  SECTION("testing seq.cpp - locator") { REQUIRE(test::locator_test() == 0); }
+  PLOGD << "Passed seq subtest locator";
+}
+
 TEST_CASE("seq", "[seq]") {
-  SECTION("testing seq.cpp") { REQUIRE(test::seq_test() == 0); }
-  PLOGD << "Passed seq test";
+  SECTION("testing seq.cpp - Seq") { REQUIRE(test::seq_test() == 0); }
+  PLOGD << "Passed seq main test";
 }
