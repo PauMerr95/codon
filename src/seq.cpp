@@ -427,6 +427,6 @@ codon::locator::locator(std::size_t index, int shift)
 
 void codon::locator::verify_shift() {
   if (this->shift < 1 || this->shift > 3)
-    throw std::exception(
+    throw std::invalid_argument(
         "verify_shift for codon::locator failed => shift is out of scope.");
 }

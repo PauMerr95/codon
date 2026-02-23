@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "codon.h"
+#include "random.h"
 #include "testing.h"
 
 void test::check_creation_str(std::vector<std::string> arr_bases) {
@@ -54,6 +55,14 @@ void test::check_creation_base(codon::base arr_bases[], int len) {
 }
 
 void test::check_operations(std::vector<codon::Codon> arr_codons) {
+  codon::Codon first_codon_TCA = arr_codons[0];
+  codon::Codon second_codon_GGG = arr_codons[1];
+  REQUIRE(first_codon_TCA.get_base_at(1) == codon::base::T);
+  REQUIRE(first_codon_TCA.get_base_at(2) == codon::base::C);
+  REQUIRE(first_codon_TCA.get_base_at(3) == codon::base::A);
+  REQUIRE(second_codon_GGG.get_base_at(randomiser::get_int(1, 3)) ==
+          codon::base::G);
+
   for (codon::Codon temp_codon : arr_codons) {
     if (temp_codon.get_bases_len() == 0) {
       std::bitset<8> original_void = temp_codon.get_bases_bin();
@@ -85,7 +94,9 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
      * (this also includes the previously filled in As)
      */
     while (counter--) {
+      codon::base first_base = temp_codon.get_base_at(1);
       codon::base dropped = temp_codon.squeeze_right(codon::G);
+      REQUIRE(first_base == dropped);
 
       if (reverse_codon.get_bases_len() == 0)
         reverse_codon = codon::Codon(dropped);
