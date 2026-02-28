@@ -49,6 +49,22 @@ int test::seq_test() {
     test::check_insertions_codons(test_sequences, vec_codon);
     PLOGD << "Check insertions_codons completed";
 
+    test::check_insertions_seqs(test_sequences, test_sequences);
+    PLOGD << "Check insertions_seqs completed";
+
+    /*  TODO: Test later:
+
+        test::check_pushback_bases(test_sequences, vec_bases);
+        PLOGD << "Check pushback_bases completed";
+
+
+        test::check_pushback_codons(test_sequences, vec_codon);
+        PLOGD << "Check pushback_codons completed";
+
+        test::check_pushback_seqs(test_sequences, test_sequences);
+        PLOGD << "Check pushback_seqs completed";
+    */
+
   } catch (std::invalid_argument &exception) {
     PLOGF << "Invalid argument supplied: " << exception.what();
     std::cerr << "Invalid argument supplied: " << exception.what();
@@ -128,59 +144,62 @@ void test::check_shifting(std::vector<codon::Seq> &vec_seq) {
   }
 }
 
+inline std::vector<codon::locator> generate_locators(
+    const std::size_t &amount, const codon::Seq &sequence) {
+  std::vector<codon::locator> vec_locators;
+  vec_locators.reserve(amount);
+  for (int i{0}; i < amount; ++i) {
+    int index{
+        randomiser::get_int(sequence.get_first_idx(), sequence.get_last_idx())};
+    int shift{
+        randomiser::get_int(1, sequence.get_codon_at(index).get_bases_len())};
+    vec_locators.emplace_back(codon::locator(index, shift));
+  }
+  std::string message;
+  message.reserve(vec_locators.size() * 10);
+  std::for_each(vec_locators.begin(), vec_locators.end(),
+                [&](const codon::locator &locator) {
+                  message.append("{");
+                  message.append(std::to_string(locator.index));
+                  message.append(", ");
+                  message.append(std::to_string(locator.shift));
+                  message.append("} ");
+                });
+  PLOGD << "Generated Locations" << message;
+  return vec_locators;
+}
+
 void test::check_insertions_bases(std::vector<codon::Seq> &vec_seq,
                                   std::vector<codon::base> inserts) {
   int counter_seq{0};
   for (codon::Seq &curr_seq : vec_seq) {
-    int operation_idx = 0;
-    std::vector<codon::locator> vec_locators;
-    vec_locators.reserve(inserts.size());
-
     // generate pseudorandom insert and shift locations
-    for (int i{0}; i < inserts.size(); ++i) {
-      vec_locators.emplace_back(
-          codon::locator(randomiser::get_int(curr_seq.get_first_idx(),
-                                             curr_seq.get_last_idx()),
-                         randomiser::get_int(1, 3)));
-    }
+    std::vector<codon::locator> vec_locators{
+        generate_locators(inserts.size(), curr_seq)};
 
-    std::string message;
-    message.reserve(vec_locators.size() * 10);
-    std::for_each(vec_locators.begin(), vec_locators.end(),
-                  [&](const codon::locator &locator) {
-                    message.append("{");
-                    message.append(std::to_string(locator.index));
-                    message.append(", ");
-                    message.append(std::to_string(locator.shift));
-                    message.append("} ");
-                  });
-    PLOGD << "Generated Locations" << message;
     PLOGD << "Current Sequence: " << curr_seq.get_seq_str();
     PLOGD << "Trulen bases of current seq: " << curr_seq.get_seq_trulen("bp");
 
     int counter_bases{0};
     for (codon::base &curr_base : inserts) {
-      check_insertion_base(curr_seq, curr_base, vec_locators.at(operation_idx));
+      check_insertion_base(curr_seq, curr_base, vec_locators.at(counter_bases));
       PLOGD << "Passed required random check for base number "
             << ++counter_bases;
-      ++operation_idx;
     }
     PLOGD << "Passed required random checks for seq number " << ++counter_seq;
 
     // edge case high:
-    check_insertion_base(curr_seq, codon::base::G,
-                         codon::locator(curr_seq.get_last_idx(), 3));
+    check_insertion_base(curr_seq, codon::base::G, curr_seq.get_last_loc());
     // edge case low:
-    check_insertion_base(curr_seq, codon::base::C,
-                         codon::locator(curr_seq.get_first_idx(), 1));
+    check_insertion_base(curr_seq, codon::base::C, curr_seq.get_first_loc());
     PLOGD << "Passed required edge case checks for seq number " << counter_seq;
   }
 }
 
 void test::check_insertion_base(codon::Seq &seq, codon::base base,
                                 codon::locator loc) {
-  PLOGD << "Inserting '" << codon::base_to_str(base) << "' into location "
-        << loc.index << " with shift " << loc.shift;
+  PLOGD << "Inserting '" << codon::base_to_str(base) << "' into {" << loc.index
+        << ", " << loc.shift << "}.";
 
   std::size_t bp_prio_insert{seq.get_seq_trulen("bp")};
   std::string codonstr_before_insert{seq.get_codon_at(loc).get_bases_str()};
@@ -203,29 +222,11 @@ void test::check_insertion_base(codon::Seq &seq, codon::base base,
 
 void test::check_insertions_codons(std::vector<codon::Seq> &vec_seq,
                                    std::vector<codon::Codon> inserts) {
-  std::vector<codon::locator> vec_locators;
-  vec_locators.reserve(vec_seq.size());
-
   int counter_seq{0};
   for (codon::Seq &curr_seq : vec_seq) {
-    for (int i{0}; i < inserts.size(); ++i) {
-      vec_locators.emplace_back(
-          codon::locator(randomiser::get_int(curr_seq.get_first_idx(),
-                                             curr_seq.get_last_idx()),
-                         randomiser::get_int(1, 3)));
-    }
+    std::vector<codon::locator> vec_locators{
+        generate_locators(inserts.size(), curr_seq)};
 
-    std::string message;
-    message.reserve(vec_locators.size() * 10);
-    std::for_each(vec_locators.begin(), vec_locators.end(),
-                  [&](const codon::locator &locator) {
-                    message.append("{");
-                    message.append(std::to_string(locator.index));
-                    message.append(", ");
-                    message.append(std::to_string(locator.shift));
-                    message.append("} ");
-                  });
-    PLOGD << "Generated Locations" << message;
     PLOGD << "Current Sequence: " << curr_seq.get_seq_str();
     PLOGD << "Trulen bases of current seq: " << curr_seq.get_seq_trulen("bp");
 
@@ -293,5 +294,151 @@ void test::check_insertion_codon(codon::Seq &seq, codon::Codon insert,
     REQUIRE(removed_codon.get_bases_str() == insert.get_bases_str());
     REQUIRE(bp_prio_insert == bp_post_removal);
     REQUIRE(codonstr_before_insert == codonstr_post_removal);
+  }
+}
+
+void test::check_insertions_seqs(std::vector<codon::Seq> &vec_seq,
+                                 std::vector<codon::Seq> &vec_inserts) {
+  int counter_seq{0};
+  for (codon::Seq &curr_seq : vec_seq) {
+    std::vector<codon::locator> vec_locators{
+        generate_locators(vec_inserts.size(), curr_seq)};
+    int counter_inserts{0};
+
+    for (codon::Seq curr_insert : vec_inserts) {
+      check_insertion_seq(curr_seq, curr_insert,
+                          vec_locators.at(counter_inserts));
+      PLOGD << "Passed required random check for seq number "
+            << ++counter_inserts;
+    }
+    PLOGD << "Passed required random checks for seq number " << ++counter_seq;
+
+    codon::Seq seq_low = codon::Seq("AG");
+    codon::Seq seq_mid = codon::Seq("AGGCTAGAAATCGACCATGAC");
+    codon::Seq seq_high = codon::Seq(
+        "AGGCTAATAGGCTAGTATATATATTGCGCGCGCAAATAGAATAGAATAGAATAGAATAGAATCGACCATG"
+        "ACGGAAATCGACCATGAC");
+
+    std::size_t last_idx{curr_seq.get_last_idx()};
+    std::size_t first_idx{curr_seq.get_first_idx()};
+
+    codon::locator locator_low = codon::locator(first_idx, 1);
+    codon::locator locator_high = codon::locator(
+        last_idx, curr_seq.get_codon_at(last_idx).get_bases_len());
+
+    test::check_insertion_seq(curr_seq, seq_low, locator_low);
+    test::check_insertion_seq(curr_seq, seq_low, locator_high);
+    test::check_insertion_seq(curr_seq, seq_mid, locator_low);
+    test::check_insertion_seq(curr_seq, seq_mid, locator_high);
+    test::check_insertion_seq(curr_seq, seq_high, locator_low);
+    test::check_insertion_seq(curr_seq, seq_high, locator_high);
+
+    PLOGD << "Passed required edge case checks for seq number " << counter_seq;
+  }
+}
+
+void test::check_insertion_seq(codon::Seq &seq, codon::Seq &insert,
+                               codon::locator locator) {
+  PLOGD << "Inserting '" << insert.get_seq_strsep() << "' into location "
+        << locator.index << " with shift " << locator.shift;
+  if (insert.get_seq_len() == 0) {
+    PLOGD << "Edge case: empty insert provided for insert seq";
+    REQUIRE_THROWS(seq.insert_seq(insert, locator));
+    PLOGD << "Edge case: Passed!";
+  } else {
+    std::size_t bp_prio_insert{seq.get_seq_trulen("bp")};
+    std::size_t bp_insert{insert.get_seq_trulen("bp")};
+    std::string seq_str_before{seq.get_seq_str()};
+
+    PLOGD << "Sequence before insertion:\n" << seq.get_seq_strsep();
+
+    seq.insert_seq(insert, locator);
+
+    PLOGD << "Sequence after insertion:\n" << seq.get_seq_strsep();
+
+    std::size_t bp_post_insert{seq.get_seq_trulen("bp")};
+    codon::Seq popped_seq = seq.pop_seq(locator, bp_insert);
+    std::size_t bp_post_removal{seq.get_seq_trulen("bp")};
+
+    PLOGD << "Sequence after restoral: " << seq.get_seq_strsep();
+
+    REQUIRE(bp_prio_insert == bp_post_removal);
+    REQUIRE(bp_prio_insert + bp_insert == bp_post_insert);
+    REQUIRE(popped_seq.get_seq_str() == insert.get_seq_str());
+    REQUIRE(seq_str_before == seq.get_seq_str());
+  }
+}
+
+void test::check_pushback_bases(std::vector<codon::Seq> &vec_seq,
+                                std::vector<codon::base> inserts) {
+  for (codon::Seq &curr_seq : vec_seq) {
+    for (codon::base curr_base : inserts) {
+      std::string curr_seq_before_insertion{curr_seq.get_seq_str()};
+      std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
+      curr_seq.push_back(curr_base);
+      std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+      curr_seq.pop_base(curr_seq.get_last_loc());
+      std::string curr_seq_after_removal{curr_seq.get_seq_str()};
+      std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+      REQUIRE(bp_prio_insert == bp_after_removal);
+      REQUIRE(bp_prio_insert + 1 == bp_after_insert);
+      REQUIRE(curr_seq_before_insertion == curr_seq_after_removal);
+    }
+  }
+}
+
+void test::check_pushback_codons(std::vector<codon::Seq> &vec_seq,
+                                 std::vector<codon::Codon> inserts) {
+  for (codon::Seq &curr_seq : vec_seq) {
+    for (codon::Codon curr_codon : inserts) {
+      if (curr_codon.is_empty()) {
+        REQUIRE_THROWS(curr_seq.push_back(curr_codon));
+      } else {
+        codon::locator insert_loc{curr_seq.get_last_loc()};
+        std::string curr_seq_before_insertion{curr_seq.get_seq_str()};
+        std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
+
+        curr_seq.push_back(curr_codon);
+
+        std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+
+        curr_seq.pop_codon(insert_loc, curr_codon.get_bases_len());
+
+        std::string curr_seq_after_removal{curr_seq.get_seq_str()};
+        std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+        REQUIRE(bp_prio_insert == bp_after_removal);
+        REQUIRE(bp_prio_insert + curr_codon.get_bases_len() == bp_after_insert);
+        REQUIRE(curr_seq_before_insertion == curr_seq_after_removal);
+      }
+    }
+  }
+}
+void test::check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
+                               std::vector<codon::Seq> &inserts) {
+  for (codon::Seq &curr_seq : vec_seq) {
+    for (codon::Seq curr_insert : inserts) {
+      if (curr_seq.get_seq_trulen("bp") == 0) {
+        REQUIRE_THROWS(curr_seq.push_back(curr_insert));
+      } else {
+        codon::locator insert_loc{curr_seq.get_last_loc()};
+        std::string curr_seq_before_insertion{curr_seq.get_seq_str()};
+        std::size_t bp_prio_insert{curr_seq.get_seq_trulen("bp")};
+
+        curr_seq.push_back(curr_insert);
+
+        std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+
+        curr_seq.pop_seq(insert_loc, curr_seq.get_last_loc());
+        std::string curr_seq_after_removal{curr_seq.get_seq_str()};
+        std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+        REQUIRE(bp_prio_insert == bp_after_removal);
+        REQUIRE(bp_prio_insert + curr_insert.get_seq_trulen("bp") <
+                bp_after_insert);
+        REQUIRE(curr_seq_before_insertion == curr_seq_after_removal);
+      }
+    }
   }
 }

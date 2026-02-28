@@ -4,40 +4,43 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <exception>
+#include <sstream>
+#include <stack>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "codon.h"
 
-codon::Seq::Seq(const std::string &input) {
+codon::Seq::Seq(const std::string& input) {
   int remainder_size = input.length() % 3;
   bool all_codons_full = (remainder_size == 0);
 
-  // ignore potential warning regarding integer division in combination with
-  // float -> int division part calculates the amount of necessary codons and
-  // floating point multiplication is just for 20% safety buffer loss of
-  // precision is negligable.
   this->seq.reserve(static_cast<std::size_t>(
-      (all_codons_full) ? (input.length() / 3) * 1.2
-                        : (input.length() / 3 + 1) * 1.2));
+      (all_codons_full) ? static_cast<int>(input.length() / 3) * 1.2
+                        : (static_cast<int>(input.length() / 3) + 1) * 1.2));
 
-  PLOGD << "Generating Seq '" << input;
-  PLOGD << "Remainder_size = " << remainder_size
-        << "\t//\tAll_codons_full = " << all_codons_full;
+  PLOGD << "Generating Seq:\n" << input;
 
   for (int i = 0; i < input.length() / 3; i++) {
     this->seq.emplace_back(codon::Codon(input.substr(i * 3, 3)));
-    PLOGD << "Placing codon '" << input.substr(i * 3, 3) << "' at pos. " << i;
   }
 
   if (!all_codons_full) {
     this->seq.emplace_back(
         codon::Codon(input.substr(input.length() - remainder_size)));
-    PLOGD << "Placing incomplete codon '"
-          << input.substr(input.length() - remainder_size) << "' at pos. "
-          << (input.length() / 3);
   }
+  PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
+}
+
+codon::Seq::Seq(const std::size_t& size) { this->seq.reserve(size); }
+
+codon::Seq::Seq(const codon::Codon& codon_copy) {
+  this->seq.push_back(codon_copy);
+}
+codon::Seq::Seq(codon::Codon&& codon_move) {
+  this->seq.emplace_back(std::move(codon_move));
 }
 
 codon::Seq::~Seq() {
@@ -68,17 +71,16 @@ void codon::Seq::left_shift(std::size_t upto_loc) {
   std::size_t final_stop{(upto_loc) ? upto_loc : this->get_first_idx()};
   int size_at_upto_loc = this->seq.at(final_stop).get_bases_len() < 3;
 
-  // INFO: Early return for edge case during pop_base() at the final codon,
+  // Early return for edge case during pop_base() at the final codon,
   // might otherwise result in weird stuff.
   if (final_stop == idx) return;
 
-  // INFO: Final stop correction in case the first idx is displaced by a VOID
+  // Final stop correction in case the first idx is displaced by a VOID
   while (this->seq.at(final_stop).is_full() && final_stop > 0) --final_stop;
 
   if (this->seq.at(final_stop).get_bases_len() < 3) {
     codon::base hopping_base{this->seq[idx].pop(1)};
-    // TODO: If buffer is implemented this needs to be changed
-    // Currently removes codon if we took the last basepair
+
     if (this->seq.at(idx).get_bases_str() == "VOID") {
       this->seq.pop_back();
     }
@@ -183,7 +185,6 @@ void codon::Seq::insert_base(codon::base base, codon::locator locator) {
    * make a new codon can lead to resizing but effect is minimal because of
    * existing buffer
    */
-  // TODO: Change this to be more specific in case I want to implement a buffer
   this->seq.emplace_back(codon::Codon(hopping_base));
 }
 
@@ -208,7 +209,8 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
     while (size_insert--) {
       /* INFO: This will momentarily use an invalidated locator when pop removes
        * only available base at end, creating an intermediate VOID for
-       * insert_base. Codon::pop() does not delete empty codons.
+       * insert_base. Codon::pop() does not delete empty codons; only
+       * Seq::pop_base() does.
        */
       this->insert_base(codon_insert.pop(codon_insert.get_bases_len()),
                         locator);
@@ -274,16 +276,142 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
 
 void codon::Seq::insert_seq(codon::Seq other, codon::locator locator) {
   // check if capacity is compromised
+  if (!this->is_locator_valid(locator)) {
+    throw std::invalid_argument("Invalid locator provided to insert_seq");
+  }
   if ((this->seq.size() + other.seq.size()) < this->seq.capacity()) {
-    this->seq.reserve((this->seq.size() + other.seq.size()) * 1.2);
+    this->seq.reserve(
+        static_cast<std::size_t>((this->seq.size() + other.seq.size()) * 1.2));
     PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
   };
-  int bases_at_insert = this->seq[locator.index].get_bases_len();
 
-  // TODO: insert_seq() needs to be finished
+  // edge case other.seq.size = 1 -> insert_codon
+  if (other.get_first_idx() == other.get_last_idx()) {
+    this->insert_codon(
+        other.get_codon_at(codon::locator(other.get_first_idx())), locator);
+    return;
+  }
+
+  int amount_expelled =
+      this->seq[locator.index].get_bases_len() - locator.shift + 1;
+  if (amount_expelled <= 0) {
+    throw std::invalid_argument(
+        "Shift for insert location is larger than lenght of bases. Consider "
+        "using push_back() or insert_right to fill codon.");
+  }
+
+  codon::Codon second_anneal("VOID");
+  // make space in first anneal
+  while (amount_expelled--) {
+    second_anneal.insert_left(this->seq[locator.index].pop());
+  }
+
+  // fill first anneal
+  while (!this->seq[locator.index].is_full()) {
+    this->seq[locator.index].insert_right(
+        other.pop_base(other.get_first_loc()));
+  }
+
+  // make left end of insert_seq blunt
+  while (!other.get_codon_at(other.get_first_loc()).is_full()) {
+    other.left_shift(get_first_idx());
+  }
+
+  // bypass for edge case: insertion in final codon of seq
+  if (this->get_last_idx() != locator.index) {
+    // complete second_anneal
+    int overhang_other = other.seq.at(other.get_last_idx()).get_bases_len();
+    while (!second_anneal.is_full() && overhang_other--) {
+      second_anneal.insert_left(other.pop_base(other.get_last_loc()));
+    }
+
+    while (overhang_other--) {
+      codon::base temp = second_anneal.squeeze_left(other.seq.back().pop());
+      this->insert_base(temp, codon::locator(locator.index + 1, 1));
+    }
+    while (other.seq.back().is_empty()) {
+      other.seq.pop_back();
+    }
+  }
+  // move 3 terminus
+  std::size_t size_term_3 = this->get_last_idx() - locator.index;
+  std::size_t first_other{other.get_first_idx()};
+  std::size_t last_other{other.get_last_idx()};
+
+  std::stack<codon::Codon> temp;
+  for (int i = 0; i < size_term_3; i++) {
+    temp.push(this->seq.back());
+    this->seq.pop_back();
+  }
+
+  for (int i = first_other; i <= last_other; i++) {
+    // This is going to mess up the insert but thats why I passed it by value
+    this->seq.emplace_back(std::move(other.seq.at(i)));
+  }
+
+  if (temp.empty()) {
+    this->seq.emplace_back(std::move(second_anneal));
+    return;
+  } else {
+    this->seq.emplace_back(std::move(temp.top()));
+    // No one is safe ...
+    temp.pop();
+    std::size_t idx_anneal{this->get_last_idx()};
+    while (!temp.empty()) {
+      this->seq.emplace_back(std::move(temp.top()));
+      temp.pop();
+    }
+    this->insert_codon(second_anneal, codon::locator(idx_anneal, 1));
+  }
 }
 
-codon::Codon codon::Seq::get_codon_at(const codon::locator &locator) const {
+void codon::Seq::push_back(codon::base base) {
+  if (!this->seq.at(this->get_last_idx()).is_full()) {
+    this->seq.at(this->get_last_idx()).insert_right(base);
+  } else {
+    this->seq.emplace_back(codon::Codon(base));
+  }
+}
+
+void codon::Seq::push_back(codon::Codon codon) {
+  if (codon.is_empty()) {
+    throw std::invalid_argument("Passed empty codon to Seq::push_back()");
+  }
+
+  std::size_t last_idx{this->get_last_idx()};
+  while (!codon.is_empty()) {
+    if (this->seq.at(last_idx).is_full()) {
+      this->seq.emplace_back(std::move(codon));
+      PLOGD << "Pushing whole codon back: " << codon.get_bases_str();
+      return;
+    }
+    this->seq.at(last_idx).insert_right(codon.pop(1));
+    PLOGD << "Pushing codon back - Remaining to push: "
+          << codon.get_bases_str();
+  }
+}
+
+void codon::Seq::push_back(codon::Seq sequence) {
+  if (sequence.get_seq_trulen("bp") == 0) {
+    throw std::invalid_argument("Passed empty sequence to Seq::push_back()");
+  }
+  std::size_t last_idx{this->get_last_idx()};
+  while (!this->seq.at(last_idx).is_full() &&
+         !sequence.get_codon_at(sequence.get_first_loc()).is_empty()) {
+    this->seq.at(last_idx).insert_right(
+        sequence.pop_base(sequence.get_first_loc()));
+  }
+  while (!sequence.get_codon_at(get_first_loc()).is_full() &&
+         sequence.get_first_idx() < sequence.get_last_idx()) {
+    sequence.left_shift();
+  }
+
+  for (codon::Codon& codon : sequence.seq) {
+    this->seq.emplace_back(std::move(codon));
+  }
+}
+
+codon::Codon codon::Seq::get_codon_at(const codon::locator& locator) const {
   if (locator.shift == 0 || locator.shift == 1)
     return this->seq.at(locator.index);
   else if (this->seq.at(locator.index).get_bases_len() < locator.shift) {
@@ -314,7 +442,7 @@ std::size_t codon::Seq::get_seq_trulen(std::string how) const {
     return idx_right - idx_left + 1;
   else if (how == "bp" || how == "bases") {
     std::for_each(this->seq.begin(), this->seq.end(),
-                  [&](const codon::Codon &curr_codon) {
+                  [&](const codon::Codon& curr_codon) {
                     bases += curr_codon.get_bases_len();
                   });
   } else {
@@ -346,11 +474,17 @@ codon::base codon::Seq::pop_base(codon::locator locator) {
   // After removal seq will shift left to fill hole.
   //   [1] base_1 [2] base_2 [3] base_3
   //   any number above 3 will be treated as 3, squeezing out prior base 3.
-  codon::base popped_base;
-  if (this->get_codon_at(locator.index).is_empty()) {
+  locator.verify_shift();
+  if (!this->is_locator_valid(locator)) {
+    throw std::invalid_argument(
+        "Tried to use invalid locator on sequence during pop_base()");
+  } else if (this->get_codon_at(locator.index).is_empty()) {
     throw std::invalid_argument("Tried to use pop_base() on empty Codon");
-  } else {
-    popped_base = this->seq[locator.index].pop(locator.shift);
+  }
+
+  codon::base popped_base;
+  popped_base = this->seq[locator.index].pop(locator.shift);
+  if (locator.index < this->get_last_idx()) {
     this->left_shift(locator.index);
   }
   return popped_base;
@@ -358,7 +492,7 @@ codon::base codon::Seq::pop_base(codon::locator locator) {
 
 codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
   /* size_cut defaults to three but will remove less
-   * if <3 bases are availabel
+   * if <3 bases are available
    */
 
   // edge case: size_cut = 0
@@ -404,6 +538,126 @@ codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
   return popped_codon;
 }
 
+codon::Seq codon::Seq::pop_seq(codon::locator locator,
+                               std::size_t size_cut_bp) {
+  return this->pop_seq(locator, locator + size_cut_bp);
+}
+
+codon::Seq codon::Seq::pop_seq(codon::locator locator_start,
+                               codon::locator locator_end) {
+  // locator validation
+  locator_start.verify_shift();
+  if (!this->is_locator_valid(locator_start))
+    throw std::invalid_argument("Provided an invalid locator_start to pop_seq");
+  locator_end.verify_shift();
+  if (!this->is_locator_valid(locator_end))
+    throw std::invalid_argument("Provided an invalid locator_end to pop_seq");
+  if (locator_end < locator_start)
+    throw std::invalid_argument(
+        "Provided lower start than end locator for pop_seq()");
+
+  PLOGD << "Popping on sequence:\n" << this->get_seq_strsep();
+  PLOGD << "Locator_start: {" << locator_start.index << ", "
+        << locator_start.shift << "}";
+  PLOGD << "Locator_end:   {" << locator_end.index << ", " << locator_end.shift
+        << "}";
+
+  if (locator_start.distance_to(locator_end) <= 3) {
+    // edge-case: removal is size of a single codon
+    std::size_t size_codon = locator_start.distance_to(locator_end);
+    codon::Seq popped(this->pop_codon(locator_start, size_codon));
+    return popped;
+  }
+
+  // TODO: for better performance remove the call to subseq and integrate into
+  // removal
+  codon::Seq popped_seq{this->subseq(locator_start, locator_end)};
+
+  // shorten aneals
+  bool remove_whole_start{false};
+  int bases_loc_start{this->seq.at(locator_start.index).get_bases_len()};
+
+  if (locator_start.shift == 1) {
+    remove_whole_start = true;
+  } else {
+    int amount_expelled_5term{bases_loc_start - locator_start.shift + 1};
+    while (amount_expelled_5term--) {
+      this->seq.at(locator_start.index).pop();
+    }
+  }
+  int amount_expelled_3term{locator_end.shift - 1};
+  while (amount_expelled_3term--) {
+    this->seq.at(locator_end.index).pop(1);
+  }
+
+  if (locator_start.index + 1 < locator_end.index) {
+    this->seq.erase(this->seq.begin() + locator_start.index +
+                        ((remove_whole_start) ? 0 : 1),
+                    this->seq.begin() + locator_end.index);
+  }
+
+  // fill gaps at anneal
+  if (locator_start.index != this->get_last_idx()) {
+    while (this->seq.at(locator_start.index + 1).get_bases_len() < 3 &&
+           locator_start.index + 1 < this->get_last_idx()) {
+      this->left_shift(locator_start.index + 1);
+    }
+    while (this->seq.at(locator_start.index).get_bases_len() < 3 &&
+           locator_start.index < this->get_last_idx()) {
+      this->left_shift(locator_start.index);
+    }
+  }
+  PLOGD << "Sequence after popping:\n" << this->get_seq_strsep();
+
+  return popped_seq;
+}
+
+codon::Seq codon::Seq::subseq(codon::locator locator_start,
+                              codon::locator locator_end) {
+  /* returns a copy of the subsequence specified, respecting the alignment.
+   */
+  locator_start.verify_shift();
+  locator_end.verify_shift();
+  if (locator_end < locator_start) {
+    throw std::invalid_argument(
+        "Locator_start provided to subseq() is higher than the provided "
+        "locator_end().");
+  }
+  if (!this->is_locator_valid(locator_start) ||
+      !this->is_locator_valid(locator_end)) {
+    throw std::invalid_argument(
+        "Provided invalid locator for Codon::Seq::subseq()");
+  }
+
+  PLOGD << "Retrieving subseq from sequence:\n" << this->get_seq_strsep();
+  codon::Seq subseq(this->seq.at(locator_start.index));
+  PLOGD << "First codon:\n" << subseq.get_seq_strsep();
+  int amount_expelled_front{locator_start.shift - 1};
+  while (amount_expelled_front--) {
+    subseq.pop_base(subseq.get_first_loc());
+  }
+  PLOGD << "Removed bloat:\n" << subseq.get_seq_strsep();
+
+  while (++locator_start.index < locator_end.index) {
+    subseq.seq.push_back(this->seq.at(locator_start.index));
+  }
+  PLOGD << "Added until locator_end:\n" << subseq.get_seq_strsep();
+
+  if (locator_end.shift > 1) {
+    subseq.seq.push_back(this->seq.at(locator_end.index));
+    int amount_expelled_back{subseq.seq.back().get_bases_len() -
+                             locator_end.shift + 1};
+    while (amount_expelled_back--) {
+      codon::locator last_loc = subseq.get_last_loc();
+      PLOGD << "Popping base at {" << last_loc.index << ", " << last_loc.shift
+            << "}.";
+      subseq.pop_base(subseq.get_last_loc());
+    }
+    PLOGD << "Added overhang:\n" << subseq.get_seq_strsep();
+  }
+  return subseq;
+}
+
 codon::locator codon::Seq::get_first_loc() const {
   return codon::locator(this->get_first_idx(), 1);
 }
@@ -415,6 +669,13 @@ codon::locator codon::Seq::get_last_loc() const {
   return codon::locator(idx, shift);
 }
 
+std::string codon::Seq::get_seq_strsep() const {
+  std::stringstream ss;
+  std::for_each(
+      this->seq.begin(), this->seq.end(),
+      [&](const codon::Codon& codon) { ss << codon.get_bases_str() << " "; });
+  return ss.str();
+}
 bool codon::Seq::is_locator_valid(codon::locator locator) {
   return (locator >= this->get_first_loc() && locator <= this->get_last_loc());
 }
@@ -429,4 +690,26 @@ void codon::locator::verify_shift() {
   if (this->shift < 1 || this->shift > 3)
     throw std::invalid_argument(
         "verify_shift for codon::locator failed => shift is out of scope.");
+}
+
+std::size_t codon::locator::distance_to(const codon::locator& other) {
+  std::size_t distance{0};
+  if (this->index > other.index) {
+    distance += (this->index - other.index) * 3;
+    distance -= other.shift;
+    distance += this->shift;
+  } else if (this->index == other.index) {
+    if (this->shift > other.shift)
+      distance += (this->shift - other.shift);
+    else
+      distance += (other.shift - this->shift);
+  } else {
+    distance += (other.index - this->index) * 3;
+    distance -= this->shift;
+    distance += other.shift;
+  }
+  PLOGD << "Calculated distance between {" << this->index << ", " << this->shift
+        << "} and {" << other.index << ", " << other.shift
+        << "} = " << distance;
+  return distance;
 }

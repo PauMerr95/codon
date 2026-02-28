@@ -12,8 +12,11 @@ int test::locator_test() {
   std::vector<codon::locator> vec_locator{check_locator_creation()};
   PLOGD << "Creation of locator passed";
 
-  check_locator_comparisons(vec_locator);
+  test::check_locator_comparisons(vec_locator);
   PLOGD << "Comparison of locators passed";
+
+  test::check_locator_arithmetics(vec_locator);
+  PLOGD << "Arithmetics of locators passed";
 
   check_locator_validation();
   PLOGD << "Validation of locators passed";
@@ -49,6 +52,54 @@ void test::check_locator_comparisons(
   for (codon::locator locator : vec_locator) {
     REQUIRE(locator <= idxMAX_shiftMAX);
     REQUIRE(locator >= idx0_shift1);
+  }
+}
+
+void test::check_locator_arithmetics(
+    const std::vector<codon::locator>& vec_locator) {
+  std::size_t low_1{0};
+  std::size_t low_2{1};
+  std::size_t low_3{4};
+  std::size_t high_1{6'890};
+  std::size_t high_2{6'554'512};
+  std::size_t high_3{2'039'845'709'283'428'934};
+  std::vector<std::size_t> operands{low_1,  low_2,  low_3,
+                                    high_1, high_2, high_3};
+
+  for (codon::locator locator : vec_locator) {
+    codon::locator copy_original{locator};
+    for (const std::size_t& operand : operands) {
+      if (operand) {
+        if (operand > ((locator.index * 3) + locator.shift)) {
+          REQUIRE_THROWS(locator -= operand);
+          REQUIRE_THROWS(locator - operand);
+        } else {
+          REQUIRE(copy_original < (locator + operand));
+          REQUIRE(locator == copy_original);
+          REQUIRE(copy_original > (locator - operand));
+          REQUIRE(locator == copy_original);
+        }
+
+        locator += operand;
+        REQUIRE(locator > copy_original);
+        REQUIRE(locator.distance_to(copy_original) == operand);
+        REQUIRE(copy_original.distance_to(locator) == operand);
+        locator -= operand;
+        REQUIRE(locator == copy_original);
+
+      } else {
+        // edge_case 0
+        locator += operand;
+        REQUIRE(locator == copy_original);
+        locator -= operand;
+        REQUIRE(locator == copy_original);
+
+        REQUIRE(copy_original == (locator + operand));
+        REQUIRE(locator == copy_original);
+        REQUIRE(copy_original == (locator - operand));
+        REQUIRE(locator == copy_original);
+      }
+    }
   }
 }
 

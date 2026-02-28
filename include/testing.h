@@ -18,6 +18,7 @@ int locator_test();
 std::vector<codon::locator> check_locator_creation();
 void check_locator_comparisons(const std::vector<codon::locator> &vec_locator);
 void check_locator_methods();
+void check_locator_arithmetics(const std::vector<codon::locator> &vec_locator);
 void check_locator_validation();
 
 int seq_test();
@@ -35,5 +36,17 @@ void check_insertions_codons(std::vector<codon::Seq> &vec_seq,
                              std::vector<codon::Codon> inserts);
 void check_insertion_codon(codon::Seq &seq, codon::Codon insert,
                            codon::locator locator);
+
+void check_insertions_seqs(std::vector<codon::Seq> &vec_seq,
+                           std::vector<codon::Seq> &vec_inserts);
+void check_insertion_seq(codon::Seq &seq, codon::Seq &inserts,
+                         codon::locator locator);
+
+void check_pushback_bases(std::vector<codon::Seq> &vec_seq,
+                          std::vector<codon::base> inserts);
+void check_pushback_codons(std::vector<codon::Seq> &vec_seq,
+                           std::vector<codon::Codon> inserts);
+void check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
+                         std::vector<codon::Seq> &inserts);
 
 }  // namespace test
