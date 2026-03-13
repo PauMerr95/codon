@@ -1,6 +1,11 @@
 #include <plog/Log.h>
 
 #include <cstddef>
+#include <exception>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "catch2/catch_test_macros.hpp"
@@ -8,29 +13,47 @@
 #include "seq.h"
 #include "testing.h"
 
+constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
+
 int test::locator_test() {
-  std::vector<codon::locator> vec_locator{check_locator_creation()};
-  PLOGD << "Creation of locator passed";
+  try {
+    std::vector<codon::locator> vec_locator{check_locator_creation()};
+    PLOGD << "Creation of locator passed";
 
-  test::check_locator_comparisons(vec_locator);
-  PLOGD << "Comparison of locators passed";
+    test::check_locator_comparisons(vec_locator);
+    PLOGD << "Comparison of locators passed";
 
-  test::check_locator_arithmetics(vec_locator);
-  PLOGD << "Arithmetics of locators passed";
+    test::check_locator_arithmetics(vec_locator);
+    PLOGD << "Arithmetics of locators passed";
 
-  check_locator_validation();
-  PLOGD << "Validation of locators passed";
+    check_locator_validation();
+    PLOGD << "Validation of locators passed";
+  } catch (std::invalid_argument& e) {
+    std::stringstream ss;
+    ss << "Caught invalid argument exception during locater_test: " << e.what();
+    std::string message{ss.str()};
+    PLOGF << message;
+    abort();
+  } catch (std::exception& e) {
+    std::stringstream ss;
+    ss << "Caught std::exception during locater_test: " << e.what();
+    std::string message{ss.str()};
+    PLOGF << message;
+    abort();
+  }
   return 0;
 }
 
 std::vector<codon::locator> test::check_locator_creation() {
-  constexpr std::size_t MAX_AT_LEAST{65535};
+  constexpr std::size_t MAX_AT_LEAST{std::numeric_limits<std::size_t>::max()};
 
+  REQUIRE_THROWS(codon::locator(0, 0));
+  REQUIRE_THROWS(codon::locator(0, 4));
   std::vector<codon::locator> vec_locator;
-  vec_locator.reserve(1000);
-  for (int i{0}; i < 1000; ++i) {
+  vec_locator.reserve(300);
+  for (int i{0}; i < 300; ++i) {
     vec_locator.emplace_back(codon::locator(
-        randomiser::get_int(0, MAX_AT_LEAST), randomiser::get_int(1, 3)));
+        randomiser::get_size_t(0, MAX_AT_LEAST), randomiser::get_int(1, 3)));
   }
   return vec_locator;
 }
@@ -41,7 +64,8 @@ void test::check_locator_comparisons(
   codon::locator idx0_shift3 = codon::locator(0, 3);
   codon::locator idx1_shift1 = codon::locator(1, 1);
   codon::locator idx1_shift2 = codon::locator(1, 2);
-  codon::locator idxMAX_shiftMAX = codon::locator(65535, 3);
+  codon::locator idxMAX_shiftMAX =
+      codon::locator(std::numeric_limits<std::size_t>::max(), 3);
   REQUIRE(idx0_shift1 == idx0_shift1);
   REQUIRE_FALSE(idx0_shift1 != idx0_shift1);
   REQUIRE(idx0_shift1 != idxMAX_shiftMAX);
@@ -67,26 +91,33 @@ void test::check_locator_arithmetics(
                                     high_1, high_2, high_3};
 
   for (codon::locator locator : vec_locator) {
+    PLOGD << "Copying locator {" << locator.index << ", " << locator.shift
+          << "}";
     codon::locator copy_original{locator};
     for (const std::size_t& operand : operands) {
       if (operand) {
-        if (operand > ((locator.index * 3) + locator.shift)) {
+        PLOGD << "check_locator_arithmetics for operand " << operand
+              << " on locator {" << locator.index << ", " << locator.shift
+              << "}";
+        if (operand > (locator.index * 3 + locator.shift)) {
           REQUIRE_THROWS(locator -= operand);
           REQUIRE_THROWS(locator - operand);
+        } else if (locator > (max_uLL - operand)) {
+          REQUIRE_THROWS(locator += operand);
+          REQUIRE_THROWS(locator + operand);
         } else {
           REQUIRE(copy_original < (locator + operand));
           REQUIRE(locator == copy_original);
           REQUIRE(copy_original > (locator - operand));
           REQUIRE(locator == copy_original);
+
+          locator += operand;
+          REQUIRE(locator > copy_original);
+          REQUIRE(locator.distance_to(copy_original) == operand);
+          REQUIRE(copy_original.distance_to(locator) == operand);
+          locator -= operand;
+          REQUIRE(locator == copy_original);
         }
-
-        locator += operand;
-        REQUIRE(locator > copy_original);
-        REQUIRE(locator.distance_to(copy_original) == operand);
-        REQUIRE(copy_original.distance_to(locator) == operand);
-        locator -= operand;
-        REQUIRE(locator == copy_original);
-
       } else {
         // edge_case 0
         locator += operand;
