@@ -7,3 +7,4 @@ cmake/
 include/Catch2
 include/plog
 *.cfg
+.bat
