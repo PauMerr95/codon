@@ -8,6 +8,7 @@
 #include <stack>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -15,7 +16,7 @@
 
 constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
 
-codon::Seq::Seq(const std::string& input) {
+codon::Seq::Seq(std::string_view input) {
   // TODO: Does not account for VOIDs
 
   int remainder_size = input.length() % 3;

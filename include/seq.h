@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "codon.h"
@@ -51,7 +52,7 @@ class Seq {
   std::vector<codon::Codon> seq;
 
  public:
-  Seq(const std::string& input);
+  Seq(std::string_view input);
   Seq(const codon::Codon& codon_copy);
   Seq(codon::Codon&& codon_move);
   Seq(const std::size_t& size);

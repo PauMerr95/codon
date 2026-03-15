@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 constexpr std::uint8_t LOC_0_m5 = static_cast<uint8_t>(0b01000000);
 constexpr std::uint8_t LOC_0_m3 = static_cast<uint8_t>(0b10000000);
@@ -46,7 +47,7 @@ char codon::base_to_str(codon::base base) {
   }
 }
 
-codon::Codon::Codon(const std::string& bases_str) {
+codon::Codon::Codon(std::string_view bases_str) {
   /* This function builds the bases from string using a 16bit generator.
    * This is probably not necessary but it was one of the things I added during
    * debugging and it's only a temporary object.

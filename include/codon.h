@@ -2,6 +2,7 @@
 #include <bitset>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace codon {
 
@@ -13,7 +14,7 @@ class Codon {
   std::uint8_t bases{0};
 
  public:
-  Codon(const std::string& bases_str);
+  Codon(std::string_view bases_str);
   Codon(base base);
   ~Codon();
 
