@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -51,6 +52,21 @@ struct locator {
 class Seq {
   std::vector<codon::Codon> seq;
 
+  void hm_handleMemoryAndError(codon::Codon insert);
+  void hm_handleMemoryAndError(codon::Seq insert);
+  void hm_handleMemoryAndError(codon::Codon insert, codon::locator locator);
+  void hm_handleMemoryAndError(codon::Seq insert, codon::locator locator);
+
+  codon::Codon hm_inseq_handleLeftAnneal(codon::Seq& insert,
+                                         codon::locator& locator);
+  void hm_inseq_edge_insertSizeLow(codon::Seq& insert, codon::locator& locator,
+                                   codon::Codon& second_anneal);
+  void hm_inseq_bluntInsert(codon::Seq& insert);
+  void hm_inseq_edge_Insertion3Term(codon::Seq& insert,
+                                    codon::Codon& second_anneal);
+  void hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
+                          codon::Codon& second_anneal);
+
  public:
   Seq(std::string_view input);
   Seq(const codon::Codon& codon_copy);
@@ -96,5 +112,4 @@ class Seq {
 
   bool is_locator_valid(codon::locator locator) const;
 };
-
 }  // namespace codon

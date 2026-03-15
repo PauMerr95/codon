@@ -199,14 +199,7 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
   /* insert a codon into sequence, squeezing it into already existing
    * codon(s) when locator.shift > 0, will split codon if VOID is provided
    */
-  locator.verify_shift();
-  if (!this->is_locator_valid(locator)) {
-    throw std::invalid_argument(
-        "Passed codon::locator to insert_codon is outside of valid range.");
-  }
-  if (codon_insert.is_empty()) {
-    throw std::invalid_argument("Passed empty codon to insert_codon.");
-  }
+  hm_handleMemoryAndError(codon_insert, locator);
   int size_original = this->seq[locator.index].get_bases_len();
   int size_insert = codon_insert.get_bases_len();
 
@@ -288,41 +281,11 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
   }
 }
 
-namespace Operation {
-enum Result : bool {
-  FAIL = false,
-  PASS = true,
-};
-}
-
-Operation::Result inline insert_seq_verify_validity(
-    codon::Seq* this_seq, const codon::Seq& other_seq,
-    const codon::locator& locator) {
-  if (!this_seq->is_locator_valid(locator)) {
-    throw std::invalid_argument("Invalid locator provided to insert_seq");
-  }
-  locator.verify_shift();
-  return Operation::Result::PASS;
-}
-
 void codon::Seq::insert_seq(codon::Seq other, codon::locator locator) {
   PLOGD << "codon::Seq::insert_seq() called:"
         << "\nTHIS:  " << this->get_seq_strsep()
         << "\nOTHER: " << other.get_seq_strsep();
-  insert_seq_verify_validity(this, other, locator);
-
-  if ((this->seq.size() + other.seq.size()) > this->seq.capacity()) {
-    PLOGD << "Do we reach this spot? ... "
-          << "\nTHIS SIZE = " << this->seq.size()
-          << "\nOTHER SIZE = " << other.seq.size();
-    PLOGD << "Do we reach this spot? ... "
-          << "New size (THIS SIZE + OTHER SIZE)*1.2 = "
-          << static_cast<std::size_t>((this->seq.size() + other.seq.size()) *
-                                      1.2);
-    this->seq.reserve(
-        static_cast<std::size_t>((this->seq.size() + other.seq.size()) * 1.2));
-    PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
-  };
+  hm_handleMemoryAndError(other, locator);
 
   // edge case other.seq.size = 1 -> insert_codon
   if (other.get_seq_trulen("bp") <= 3) {
@@ -330,114 +293,24 @@ void codon::Seq::insert_seq(codon::Seq other, codon::locator locator) {
     return;
   }
 
-  int amount_expelled =
-      this->seq[locator.index].get_bases_len() - locator.shift + 1;
-  if (amount_expelled <= 0) {
-    throw std::invalid_argument(
-        "Shift for insert location is larger than lenght of bases. Consider "
-        "using push_back() or insert_right to fill codon.");
-  }
+  codon::Codon second_anneal{hm_inseq_handleLeftAnneal(other, locator)};
 
-  codon::Codon second_anneal("VOID");
-  // make space in first anneal
-  while (amount_expelled--) {
-    second_anneal.insert_left(this->seq[locator.index].pop());
-  }
-  PLOGD << "Removed right hand side of codon specified by locator '"
-        << this->seq[locator.index].get_bases_str()
-        << "' and pushed them into second anneal '"
-        << second_anneal.get_bases_str() << "'.";
-
-  while (!this->seq[locator.index].is_full()) {
-    /* fill first anneal - cannot loop endlessly
-     * because at most 3 bases insertable and we already checked if bp <= 3
-     */
-    this->seq[locator.index].insert_right(
-        other.pop_base(other.get_first_loc()));
-  }
-  PLOGD << "Replenished side of codon specified by locator '"
-        << this->seq[locator.index].get_bases_str()
-        << "' by reducing start of insert_sequence: '" << other.get_seq_strsep()
-        << "'.";
-  std::size_t bp_remaining{other.get_seq_trulen("bp")};
-
-  if (bp_remaining <= 3) {
+  // bypass for edge case: insert can fit into codon
+  if (other.get_seq_trulen("bp") <= 3) {
     // TODO: Make a test for this fork ...
-    PLOGD << "Entering edge case for bp_remaining in other <= 3";
-    constexpr bool OVERFLOW_TRUE = true;
-    codon::Codon cleaned_remainder = other.get_codon_at(
-        other.get_first_loc(), other.get_seq_trulen("bp"), OVERFLOW_TRUE);
-    PLOGD << "Cleaned remained: " << cleaned_remainder.get_bases_str()
-          << "which should be " << bp_remaining << " basepairs long.";
-
-    if (locator.index < this->seq.size() - 1) {
-      PLOGD << "insert_location is not after last codon";
-      codon::locator new_insert = codon::locator(locator.index + 1, 1);
-      if (bp_remaining) this->insert_codon(cleaned_remainder, new_insert);
-      this->insert_codon(second_anneal, new_insert + bp_remaining);
-    } else {
-      PLOGD << "insert_location is after last codon";
-      if (bp_remaining) this->seq.emplace_back(std::move(cleaned_remainder));
-      this->seq.push_back(second_anneal);
-    }
+    hm_inseq_edge_insertSizeLow(other, locator, second_anneal);
     return;
-
-  } else {
-    while (!other.seq.at(other.get_first_idx()).is_full()) {
-      // make left end of insert_seq blunt
-      other.left_shift(get_first_idx());
-    }
-    PLOGD << "Blunted other_sequence: '" << other.get_seq_strsep() << "'.";
   }
+
+  hm_inseq_bluntInsert(other);
+
   // bypass for edge case: insertion in final codon of seq
   if (this->get_last_idx() == locator.index) {
-    PLOGD << "Entering edge case: insert is in final codon of sequence";
-    // complete second_anneal
-    if (!second_anneal.is_empty()) {
-      other.push_back(second_anneal);
-    }
-    PLOGD << "Pushing back other seq: " << other.get_seq_strsep();
-    if (!other.seq.empty()) {
-      this->push_back(other);
-    }
+    hm_inseq_edge_Insertion3Term(other, second_anneal);
     return;
   }
-  // move 3 terminus
-  std::size_t size_term_3 = this->get_last_idx() - locator.index;
-  std::size_t first_other{other.get_first_idx()};
-  std::size_t last_other{other.get_last_idx()};
 
-  PLOGD << "size_term_3 (to be put into temp): " << size_term_3;
-
-  std::stack<codon::Codon> temp;
-  for (int i = 0; i < size_term_3; i++) {
-    // TODO: change to emplace and check performance change
-    temp.push(this->seq.back());
-    this->seq.pop_back();
-  }
-
-  for (int i = first_other; i <= last_other; i++) {
-    // This is going to mess up the insert but thats why I passed it by value
-    this->seq.emplace_back(std::move(other.seq.at(i)));
-  }
-  PLOGD << "Checkpoint after ruining insert";
-
-  if (temp.empty()) {
-    this->seq.emplace_back(std::move(second_anneal));
-    return;
-  } else {
-    this->seq.emplace_back(std::move(temp.top()));
-    temp.pop();
-    std::size_t idx_anneal{this->get_last_idx()};
-    while (!temp.empty()) {
-      this->seq.emplace_back(std::move(temp.top()));
-      temp.pop();
-    }
-    PLOGD << "Checkpoint after ruining temp.";
-    if (second_anneal.get_bases_len()) {
-      this->insert_codon(second_anneal, codon::locator(idx_anneal, 1));
-    }
-  }
+  hm_inseq_Insertion(other, locator, second_anneal);
 }
 
 void codon::Seq::push_back(codon::base base) {
@@ -449,9 +322,10 @@ void codon::Seq::push_back(codon::base base) {
 }
 
 void codon::Seq::push_back(codon::Codon codon) {
-  if (codon.is_empty()) {
-    throw std::invalid_argument("Passed empty codon to Seq::push_back()");
-  }
+  PLOGD << "push_back(codon::Codon) called ...\n"
+        << "this : " << this->get_seq_strsep() << "\n"
+        << "other: " << codon.get_bases_str();
+  hm_handleMemoryAndError(codon);
 
   std::size_t last_idx{this->get_last_idx()};
   while (!codon.is_empty()) {
@@ -470,9 +344,9 @@ void codon::Seq::push_back(codon::Seq sequence) {
   PLOGD << "push_back(codon::Seq) called ...\n"
         << "this : " << this->get_seq_strsep() << "\n"
         << "other: " << sequence.get_seq_strsep();
-  if (sequence.get_seq_trulen("bp") == 0) {
-    throw std::invalid_argument("Passed empty sequence to Seq::push_back()");
-  }
+
+  hm_handleMemoryAndError(sequence);
+
   std::size_t last_idx{this->get_last_idx()};
   while (!this->seq.at(last_idx).is_full() &&
          !sequence.get_codon_at(sequence.get_first_loc()).is_empty()) {
@@ -546,6 +420,7 @@ std::size_t codon::Seq::get_seq_len() const {
 
 std::size_t codon::Seq::get_seq_trulen(std::string how) const {
   if (how == "codons") {
+    PLOGD << "get_seq_trulen('codons') called";
     std::size_t idx_left{this->get_first_idx()};
     PLOGD << "get_seq_trulen('codon'): idx_left = " << idx_left;
     std::size_t idx_right{this->get_last_idx()};
@@ -968,4 +843,184 @@ std::size_t codon::locator::distance_to(const codon::locator& other) {
         << "} and {" << other.index << ", " << other.shift
         << "} = " << distance;
   return distance;
+}
+
+codon::Codon codon::Seq::hm_inseq_handleLeftAnneal(codon::Seq& insert,
+                                                   codon::locator& locator) {
+  // Helper method for insert_seq: Prepares left anneal and returns expelled
+  // bases for second anneal
+
+  codon::Codon second_anneal("VOID");
+
+  int amount_expelled =
+      this->seq[locator.index].get_bases_len() - locator.shift + 1;
+  while (amount_expelled--) {
+    second_anneal.insert_left(this->seq[locator.index].pop());
+  }
+  PLOGD << "Removed right hand side of codon specified by locator '"
+        << this->seq[locator.index].get_bases_str()
+        << "' and pushed them into second anneal '"
+        << second_anneal.get_bases_str() << "'.";
+
+  while (!this->seq[locator.index].is_full()) {
+    /* fill first anneal - cannot loop endlessly
+     * because at most 3 bases insertable and we already checked if bp <= 3
+     */
+    this->seq[locator.index].insert_right(
+        insert.pop_base(insert.get_first_loc()));
+  }
+  PLOGD << "Replenished side of codon specified by locator '"
+        << this->seq[locator.index].get_bases_str()
+        << "' by reducing start of insert_sequence: '"
+        << insert.get_seq_strsep() << "'.";
+  return second_anneal;
+}
+
+void codon::Seq::hm_inseq_edge_insertSizeLow(codon::Seq& insert,
+                                             codon::locator& locator,
+                                             codon::Codon& second_anneal) {
+  // Helper method for insert_seq, edge-case remaining bp in other >= 3
+  std::size_t bp_remaining{insert.get_seq_trulen("bp")};
+  PLOGD << "Entering edge case for bp_remaining in insert <= 3";
+  constexpr bool OVERFLOW_TRUE = true;
+  codon::Codon cleaned_remainder = insert.get_codon_at(
+      insert.get_first_loc(), insert.get_seq_trulen("bp"), OVERFLOW_TRUE);
+  PLOGD << "Cleaned remained: " << cleaned_remainder.get_bases_str()
+        << "which should be " << bp_remaining << " basepairs long.";
+
+  if (locator.index < this->seq.size() - 1) {
+    PLOGD << "insert_location is not after last codon";
+    codon::locator new_insert = codon::locator(locator.index + 1, 1);
+    if (bp_remaining) this->insert_codon(cleaned_remainder, new_insert);
+    this->insert_codon(second_anneal, new_insert + bp_remaining);
+  } else {
+    PLOGD << "insert_location is after last codon";
+    if (bp_remaining) this->seq.emplace_back(std::move(cleaned_remainder));
+    this->seq.push_back(second_anneal);
+  }
+}
+
+void codon::Seq::hm_inseq_bluntInsert(codon::Seq& insert) {
+  // Helper method for insert_seq: make left end of insert_seq blunt
+  while (!insert.get_codon_at(insert.get_first_loc()).is_full()) {
+    insert.left_shift(insert.get_first_idx());
+  }
+  PLOGD << "Blunted other_sequence: '" << insert.get_seq_strsep() << "'.";
+}
+
+void codon::Seq::hm_inseq_edge_Insertion3Term(codon::Seq& insert,
+                                              codon::Codon& second_anneal) {
+  // Helper method for insert_seq, edge case: insertion at terminus
+  PLOGD << "Entering edge case: insert is in final codon of sequence";
+  // complete second_anneal
+  if (!second_anneal.is_empty()) {
+    insert.push_back(second_anneal);
+  }
+  PLOGD << "Pushing back insert seq: " << insert.get_seq_strsep();
+  if (!insert.seq.empty()) {
+    this->push_back(insert);
+  }
+}
+
+void codon::Seq::hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
+                                    codon::Codon& second_anneal) {
+  // Helper method for insert_seq: moving 3 terminus into stack temporarily
+  //  move 3 terminus
+  std::size_t size_term_3 = this->get_last_idx() - locator.index;
+  std::size_t first_insert{insert.get_first_idx()};
+  std::size_t last_insert{insert.get_last_idx()};
+
+  PLOGD << "size_term_3 (to be put into temp): " << size_term_3;
+
+  std::stack<codon::Codon> temp;
+  for (int i = 0; i < size_term_3; i++) {
+    // TODO: change to emplace and check performance change
+    temp.push(this->seq.back());
+    this->seq.pop_back();
+  }
+
+  for (int i = first_insert; i <= last_insert; i++) {
+    // This is going to mess up the insert but thats why it is passed it by
+    // value
+    this->seq.emplace_back(std::move(insert.seq.at(i)));
+  }
+  PLOGD << "Checkpoint after ruining insert";
+
+  this->seq.emplace_back(std::move(temp.top()));
+  temp.pop();
+  std::size_t idx_anneal{this->get_last_idx()};
+  while (!temp.empty()) {
+    this->seq.emplace_back(std::move(temp.top()));
+    temp.pop();
+  }
+  PLOGD << "Checkpoint after ruining temp.";
+  if (second_anneal.get_bases_len()) {
+    this->insert_codon(second_anneal, codon::locator(idx_anneal, 1));
+  }
+}
+
+void codon::Seq::hm_handleMemoryAndError(codon::Codon insert) {
+  if (insert.is_empty()) {
+    throw std::invalid_argument("Tried to push_back an empty Codon.");
+  }
+  if (this->seq.size() + 1 > this->seq.capacity()) {
+    this->seq.reserve(static_cast<std::size_t>((this->seq.size() + 1) * 1.2));
+    PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
+  };
+}
+
+void codon::Seq::hm_handleMemoryAndError(codon::Seq insert) {
+  if (!insert.get_seq_trulen()) {
+    throw std::invalid_argument("Tried to push_back an empty sequence.");
+  }
+
+  if ((this->seq.size() + insert.seq.size()) > this->seq.capacity()) {
+    this->seq.reserve(
+        static_cast<std::size_t>((this->seq.size() + insert.seq.size()) * 1.2));
+    PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
+  };
+}
+
+void codon::Seq::hm_handleMemoryAndError(codon::Codon insert,
+                                         codon::locator locator) {
+  locator.verify_shift();
+  if (!this->is_locator_valid(locator)) {
+    throw std::invalid_argument("Invalid locator provided: out of range");
+  }
+  if (insert.is_empty()) {
+    throw std::invalid_argument("Tried to insert an empty Codon.");
+  }
+  if (locator.shift > this->seq[locator.index].get_bases_len()) {
+    throw std::invalid_argument(
+        "Shift for insert location is larger than lenght of bases at site. "
+        "Consider "
+        "using push_back() or insert_right to fill codon.");
+  }
+  if (this->seq.size() + 1 > this->seq.capacity()) {
+    this->seq.reserve(static_cast<std::size_t>((this->seq.size() + 1) * 1.2));
+    PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
+  };
+}
+
+void codon::Seq::hm_handleMemoryAndError(codon::Seq insert,
+                                         codon::locator locator) {
+  if (!this->is_locator_valid(locator)) {
+    throw std::invalid_argument("Invalid locator provided: out of range");
+  }
+  locator.verify_shift();
+  if (!insert.get_seq_trulen()) {
+    throw std::invalid_argument("Tried to insert an empty Sequence.");
+  }
+  if (locator.shift > this->seq[locator.index].get_bases_len()) {
+    throw std::invalid_argument(
+        "Shift for insert location is larger than lenght of bases at site. "
+        "Consider "
+        "using push_back() or insert_right to fill codon.");
+  }
+
+  if ((this->seq.size() + insert.seq.size()) > this->seq.capacity()) {
+    this->seq.reserve(
+        static_cast<std::size_t>((this->seq.size() + insert.seq.size()) * 1.2));
+    PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
+  };
 }
