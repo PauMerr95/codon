@@ -1,29 +1,24 @@
 #include <plog/Log.h>
+#include <readwrite.h>
 
-#include <exception>
 #include <iostream>
+#include <vector>
 
 #include "seq.h"
 
 int main(int argc, char* argv[]) {
   std::cout << "Running main variable with " << argc - 1
-            << "additional arguments\n";
+            << " additional arguments\n";
 
-  std::string sequence_1{"AGCTAGCTAGCTAGCGTA"};
-  std::string sequence_2{"AGCGCTAGCGTAGTACGTATAGCTA"};
+  std::vector<codon::Fasta> loaded_DNA{codon::load_multiple(
+      ".\\test\\input_testing\\Human tumor protein p53.fna")};
 
-  codon::Seq seq_1(sequence_1);
-  codon::Seq seq_2(sequence_2);
-  codon::locator locator(3, 2);
-
-  try {
-    std::cout << seq_1.get_seq_strsep();
-    std::cout << seq_2.get_seq_strsep();
-    seq_1.insert_seq(seq_2, locator);
-    std::cout << seq_1.get_seq_strsep();
-  } catch (const std::exception& e) {
-    std::cerr << "Failed in main function ... Error: " << e.what() << std::endl;
+  for (const codon::Fasta& curr_DNA : loaded_DNA) {
+    std::cout << curr_DNA.name << "\n";
+    if (curr_DNA.comments != "N/A") {
+      std::cout << curr_DNA.comments << "\n";
+    }
+    std::cout << curr_DNA.sequence.get_seq_str() << "\n\n";
   }
-
   return 0;
 }

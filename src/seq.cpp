@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
@@ -347,17 +348,32 @@ void codon::Seq::push_back(codon::Seq sequence) {
 
   hm_handleMemoryAndError(sequence);
 
+  if (this->seq.empty()) {
+    for (codon::Codon& curr_codon : sequence.seq) {
+      this->seq.emplace_back(std::move(curr_codon));
+    }
+    return;
+  }
+
   std::size_t last_idx{this->get_last_idx()};
-  while (!this->seq.at(last_idx).is_full() &&
-         !sequence.get_codon_at(sequence.get_first_loc()).is_empty()) {
+  while (!this->seq.at(last_idx).is_full() && !sequence.seq.empty()) {
     this->seq.at(last_idx).insert_right(
         sequence.pop_base(sequence.get_first_loc()));
+    PLOGD << "Popped base to fill last codon ... remaining: "
+          << sequence.get_seq_strsep();
   }
+  if (!sequence.get_seq_trulen("bp")) {
+    PLOGD << "insert was emptied ... aborting function call prematurely.";
+    return;
+  }
+  PLOGD << "seq not empty yet...";
   while (sequence.get_first_idx() < sequence.get_last_idx() &&
          !sequence.get_codon_at(get_first_loc()).is_full()) {
+    PLOGD << "Attempting left shift on sequence: " << sequence.get_seq_strsep();
     sequence.left_shift();
   }
 
+  PLOGD << "Attempting emplacment of sequence: " << sequence.get_seq_strsep();
   for (codon::Codon& codon : sequence.seq) {
     this->seq.emplace_back(std::move(codon));
   }
@@ -476,7 +492,7 @@ codon::base codon::Seq::pop_base(codon::locator locator) {
   if (locator.index < this->get_last_idx()) {
     this->left_shift(locator.index);
   }
-  while (this->seq.back().is_empty()) {
+  while (!this->seq.empty() && this->seq.back().is_empty()) {
     this->seq.pop_back();
   }
   return popped_base;
@@ -705,12 +721,18 @@ codon::locator codon::Seq::get_last_loc() const {
 }
 
 std::string codon::Seq::get_seq_strsep() const {
+  if (this->seq.empty()) {
+    PLOGD << "get_seq_strsep called on empty sequence";
+    return "";
+  }
+
   std::stringstream ss;
   std::for_each(
       this->seq.begin(), this->seq.end(),
       [&](const codon::Codon& codon) { ss << codon.get_bases_str() << " "; });
   return ss.str();
 }
+
 bool codon::Seq::is_locator_valid(codon::locator locator) const {
   return (locator >= this->get_first_loc() && locator <= this->get_last_loc());
 }

@@ -1,15 +1,11 @@
 #include "readwrite.h"
 
-#include <algorithm>
 #include <fstream>
 #include <ios>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
-#include "codon.h"
 
 const inline int BUFFER_SIZE{1024};
 
@@ -36,10 +32,11 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
 codon::Fasta::Fasta(codon::Seq sequence, std::string name, std::string comments)
     : sequence{sequence}, name{name}, comments{comments} {}
 
-std::vector<codon::Fasta> codon::read_FASTA(std::string path_in) {
+std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
   // verify format
   std::ifstream file{path_in};
-  std::unordered_map<std::string, codon::Seq> output;
+  std::vector<codon::Fasta> output;
+  output.reserve(10);
 
   if (!file.is_open()) {
     std::string message{"Failed to open "};
@@ -48,7 +45,6 @@ std::vector<codon::Fasta> codon::read_FASTA(std::string path_in) {
         ". Close file if already open and verify if correct path was passed.";
     throw std::runtime_error(message);
   } else {
-    std::vector<codon::Fasta> output(BUFFER_SIZE / 9);
     std::vector<char> buffer(BUFFER_SIZE);
     std::istringstream iss;
 
@@ -87,7 +83,7 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
                  int& idx_Fasta) {
   if (line.at(0) == '>') {
     ++idx_Fasta;
-    output.emplace_back(codon::Fasta(codon::Seq(1000), line, ""));
+    output.emplace_back(codon::Fasta(codon::Seq(1000), line));
   } else if (line.at(0) == ';') {
     output[idx_Fasta].comments += line;
   } else {
