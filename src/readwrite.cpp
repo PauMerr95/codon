@@ -1,5 +1,7 @@
 #include "readwrite.h"
 
+#include <plog/Log.h>
+
 #include <fstream>
 #include <ios>
 #include <sstream>
@@ -32,6 +34,76 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
 codon::Fasta::Fasta(codon::Seq sequence, std::string name, std::string comments)
     : sequence{sequence}, name{name}, comments{comments} {}
 
+codon::Fasta codon::load(const std::string& path_in) {
+  std::ifstream file{path_in};
+
+  if (!file.is_open()) {
+    std::string message{"Failed to open "};
+    message += path_in;
+    message +=
+        ". Close file if already open and verify if correct path was passed.";
+    throw std::runtime_error(message);
+  }
+
+  std::vector<char> buffer(BUFFER_SIZE);
+  std::istringstream iss;
+  codon::Fasta fasta = codon::Fasta(codon::Seq(1000), "placeholder");
+  bool extracted_name{false};
+
+  while (file.read(buffer.data(), BUFFER_SIZE)) {
+    std::streamsize bytes_read = file.gcount();
+    iss.str(std::string(buffer.data(), bytes_read));
+    iss.clear();
+
+    std::string line;
+    while (std::getline(iss, line)) {
+      if (!line.empty()) {
+        if (line.at(0) == '>') {
+          if (extracted_name) {
+            PLOGD << "Fully depleted first sequence but encountered second "
+                     "sequence in file.\n"
+                  << "Aborting call ... Use load_multiple if you want to load "
+                     "everything in the file.";
+            file.close();
+            return fasta;
+          } else {
+            fasta.name = line;
+            extracted_name = true;
+          }
+        } else if (line.at(0) == ';') {
+          fasta.comments += line;
+        } else {
+          fasta.sequence.push_back(codon::Seq(line));
+        }
+      }
+    }
+  }
+  std::streamsize bytes_read = file.gcount();
+  if (bytes_read > 0) {
+    iss.str(std::string(buffer.data(), bytes_read));
+    iss.clear();
+    std::string line;
+
+    while (std::getline(iss, line)) {
+      if (!line.empty()) {
+        if (line.at(0) == '>') {
+          if (extracted_name) {
+            break;
+          } else {
+            fasta.name = line;
+            extracted_name = true;
+          }
+        } else if (line.at(0) == ';') {
+          fasta.comments += line;
+        } else {
+          fasta.sequence.push_back(codon::Seq(line));
+        }
+      }
+    }
+  }
+  file.close();
+  return fasta;
+}
 std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
   // verify format
   std::ifstream file{path_in};

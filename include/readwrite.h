@@ -16,7 +16,7 @@ struct Fasta {
 };
 
 std::vector<codon::Fasta> load_multiple(const std::string& path_in);
-codon::Seq load(const std::string& path_in);
+codon::Fasta load(const std::string& path_in);
 
 codon::Seq write_FASTA(std::string_view path_out, codon::Seq);
 codon::Seq write_FASTA(std::string_view path_out, codon::Seq,

@@ -51,4 +51,5 @@ void check_pushback_codons(std::vector<codon::Seq> &vec_seq,
 void check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
                          std::vector<codon::Seq> &inserts);
 
+int readwrite_test();
 }  // namespace test
