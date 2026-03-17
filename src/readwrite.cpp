@@ -4,12 +4,13 @@
 
 #include <fstream>
 #include <ios>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-const inline int BUFFER_SIZE{1024};
+constexpr int BUFFER_SIZE{1024};
 
 void assign_data(std::string& line, std::vector<codon::Fasta>& output,
                  int& idx_Fasta);
@@ -58,6 +59,7 @@ codon::Fasta codon::load(const std::string& path_in) {
     std::string line;
     while (std::getline(iss, line)) {
       if (!line.empty()) {
+        PLOGD << "Extracted Line: " << line;
         if (line.at(0) == '>') {
           if (extracted_name) {
             PLOGD << "Fully depleted first sequence but encountered second "
@@ -73,6 +75,12 @@ codon::Fasta codon::load(const std::string& path_in) {
         } else if (line.at(0) == ';') {
           fasta.comments += line;
         } else {
+          while ((line.size() % 3) && (iss.peek() != EOF) &&
+                 (iss.peek() != '>')) {
+            PLOGD << "Trying to get a new character to fill up.";
+            line.push_back(iss.get());
+          }
+          PLOGD << "Final extracted line: " << line;
           fasta.sequence.push_back(codon::Seq(line));
         }
       }
@@ -96,6 +104,11 @@ codon::Fasta codon::load(const std::string& path_in) {
         } else if (line.at(0) == ';') {
           fasta.comments += line;
         } else {
+          while ((line.size() % 3) &&
+                 ((iss.peek() != EOF) || (iss.peek() != '>'))) {
+            PLOGD << "Trying to get a new character to fill up.";
+            line.push_back(iss.get());
+          }
           fasta.sequence.push_back(codon::Seq(line));
         }
       }
@@ -104,6 +117,7 @@ codon::Fasta codon::load(const std::string& path_in) {
   file.close();
   return fasta;
 }
+
 std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
   // verify format
   std::ifstream file{path_in};
@@ -129,7 +143,19 @@ std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
       std::string line;
       while (std::getline(iss, line)) {
         if (!line.empty()) {
-          assign_data(line, output, idx_Fasta);
+          if (line.at(0) == '>') {
+            ++idx_Fasta;
+            output.emplace_back(codon::Fasta(codon::Seq(1000), line));
+          } else if (line.at(0) == ';') {
+            output[idx_Fasta].comments += line;
+          } else {
+            while ((line.size() % 3) &&
+                   ((iss.peek() != EOF) || (iss.peek() != '>'))) {
+              PLOGD << "Trying to get a new character to fill up.";
+              line.push_back(iss.get());
+            }
+            output[idx_Fasta].sequence.push_back(codon::Seq(line));
+          }
         }
       }
     }
@@ -141,7 +167,19 @@ std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
       std::string line;
       while (std::getline(iss, line)) {
         if (!line.empty()) {
-          assign_data(line, output, idx_Fasta);
+          if (line.at(0) == '>') {
+            ++idx_Fasta;
+            output.emplace_back(codon::Fasta(codon::Seq(1000), line));
+          } else if (line.at(0) == ';') {
+            output[idx_Fasta].comments += line;
+          } else {
+            while ((line.size() % 3) &&
+                   ((iss.peek() != EOF) || (iss.peek() != '>'))) {
+              PLOGD << "Trying to get a new character to fill up.";
+              line.push_back(iss.get());
+            }
+            output[idx_Fasta].sequence.push_back(codon::Seq(line));
+          }
         }
       }
     }
@@ -160,5 +198,29 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
     output[idx_Fasta].comments += line;
   } else {
     output[idx_Fasta].sequence.push_back(codon::Seq(line));
+  }
+}
+
+void codon::Fasta::write_FASTA(std::string_view path_out) {
+  if (path_out == "cout") {
+    std::cout << this->name << "\n";
+    if (!this->comments.empty() && this->comments != "N/A") {
+      std::cout << this->comments << "\n";
+    }
+    std::cout << this->sequence.get_seq_str() << "\n";
+  } else {
+    std::cerr << "Write to file not yet implemented";
+  }
+}
+
+void codon::Fasta::write_CODON(std::string_view path_out) {
+  if (path_out == "cout") {
+    std::cout << this->name << "\n";
+    if (!this->comments.empty() && this->comments != "N/A") {
+      std::cout << this->comments << "\n";
+    }
+    std::cout << this->sequence.get_seq_encoded() << "\n";
+  } else {
+    std::cerr << "Write to file not yet implemented";
   }
 }

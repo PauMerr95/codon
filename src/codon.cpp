@@ -81,17 +81,62 @@ codon::Codon::Codon(std::string_view bases_str) {
 
 codon::Codon::Codon(base base) { this->bases = LOC_2_m5 | base; }
 
+codon::Codon::Codon(char enc_char) {
+  if ((enc_char < 32) || (enc_char > 115)) {
+    std::string message(
+        "Failed to generate Codon. Encountered invalid encoded character: ");
+    message.push_back(enc_char);
+    throw std::runtime_error(message);
+  }
+  if (enc_char < 36) {
+    // 32 - 35: singlet
+    this->bases = static_cast<std::uint8_t>(enc_char - 28);
+  } else if (enc_char < 52) {
+    // 36 - 51: duplet
+    this->bases = static_cast<std::uint8_t>(enc_char - 20);
+  } else {
+    // 52 - 115: triplet
+    this->bases = static_cast<std::uint8_t>(enc_char + 12);
+  }
+}
+
 codon::Codon::~Codon() {}
 
 bool codon::Codon::is_full() const { return (this->get_bases_len() == 3); }
 bool codon::Codon::is_empty() const { return (this->get_bases_len() == 0); }
 
-std::bitset<8> codon::Codon::get_bases_bin() const {
-  return std::bitset<8>(this->bases);
+bool codon::Codon::is_complement() const {
+  if (this->bases == VOID_5) return false;
+  if (this->bases == SWITCH_5) return true;
+
+  int marker_3 = static_cast<std::uint8_t>(this->bases & LOC_0);
+  int marker_1 = static_cast<std::uint8_t>(this->bases & LOC_2);
+  switch (this->get_bases_len()) {
+    case 3: {
+      int marker_3 = static_cast<std::uint8_t>(this->bases & LOC_0);
+      if (marker_3 == LOC_0_m3) return true;
+      break;
+    }
+    case 2: {
+      int marker_2 = static_cast<std::uint8_t>(this->bases & LOC_1);
+      if (marker_2 == LOC_1_m3) return true;
+      break;
+    }
+    case 1: {
+      int marker_2 = static_cast<std::uint8_t>(this->bases & LOC_1);
+      if (marker_2 == LOC_1_m3) return true;
+      break;
+    }
+  }
+  return false;
 }
 
 int codon::Codon::get_bases_int() const {
   return static_cast<int>(this->bases);
+}
+
+std::bitset<8> codon::Codon::get_bases_bin() const {
+  return std::bitset<8>(this->bases);
 }
 
 /* This function returns the length of the inserted bases.
@@ -109,6 +154,23 @@ int codon::Codon::get_bases_len() const {
     return 2;
   else
     return 1;
+}
+
+char codon::Codon::get_bases_encoded() const {
+  // This function readjusts the bases to a printable format
+  //! switches complements to 5->3 format!
+  std::uint8_t temporary_codon{(this->is_complement())
+                                   ? static_cast<std::uint8_t>(~this->bases)
+                                   : this->bases};
+  if (static_cast<std::uint8_t>(64) & temporary_codon) {
+    return this->bases - 12;
+  } else if (static_cast<std::uint8_t>(16) & temporary_codon) {
+    return this->bases + 20;
+  } else if (static_cast<std::uint8_t>(4) & temporary_codon) {
+    return this->bases + 28;
+  } else {
+    throw std::runtime_error("Failed to transform codon to encoded char");
+  }
 }
 
 std::string codon::Codon::get_bases_str() const {
@@ -152,6 +214,34 @@ std::string codon::Codon::get_bases_str() const {
   }
 
   return codon_str;
+}
+
+codon::base codon::Codon::get_base_at(int shift = 1) const {
+  switch (shift) {
+    case 1: {
+      if (this->get_bases_len() == 3)
+        return static_cast<codon::base>((this->bases & LOC_1) >> 4);
+      else if (this->get_bases_len() == 2)
+        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+      else if (this->get_bases_len() == 1)
+        return static_cast<codon::base>(this->bases & T);
+    }
+    case 2: {
+      if (this->get_bases_len() == 3)
+        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+      else if (this->get_bases_len() == 2)
+        return static_cast<codon::base>(this->bases & T);
+    }
+    case 3: {
+      return static_cast<codon::base>(this->bases & T);
+    }
+    default: {
+      std::string message =
+          "Expected shift for codon to be between 1 and 3 but received ";
+      message += (std::to_string(shift) + ".");
+      throw std::invalid_argument(message);
+    }
+  }
 }
 
 void codon::Codon::cast_to_switch() {
@@ -221,34 +311,6 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
   this->bases &= DEL_LEFT_SIDE;
   this->bases |= static_cast<uint8_t>(new_base << 4) | LOC_0_m5;
   return dropped_base;
-}
-
-codon::base codon::Codon::get_base_at(int shift = 1) const {
-  switch (shift) {
-    case 1: {
-      if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & LOC_1) >> 4);
-      else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
-      else if (this->get_bases_len() == 1)
-        return static_cast<codon::base>(this->bases & T);
-    }
-    case 2: {
-      if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
-      else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>(this->bases & T);
-    }
-    case 3: {
-      return static_cast<codon::base>(this->bases & T);
-    }
-    default: {
-      std::string message =
-          "Expected shift for codon to be between 1 and 3 but received ";
-      message += (std::to_string(shift) + ".");
-      throw std::invalid_argument(message);
-    }
-  }
 }
 
 codon::base codon::Codon::pop(int loc) {

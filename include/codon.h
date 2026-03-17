@@ -16,14 +16,17 @@ class Codon {
  public:
   Codon(std::string_view bases_str);
   Codon(base base);
+  Codon(char encoded_char);
   ~Codon();
 
   bool is_full() const;
   bool is_empty() const;
+  bool is_complement() const;
 
   int get_bases_int() const;
-  int get_bases_len() const;
   std::bitset<8> get_bases_bin() const;
+  int get_bases_len() const;
+  char get_bases_encoded() const;
   std::string get_bases_str() const;
   base get_base_at(int location) const;
 

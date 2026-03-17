@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <stack>
@@ -17,27 +18,47 @@
 
 constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
 
-codon::Seq::Seq(std::string_view input) {
+codon::Seq::Seq(std::string_view input, std::string_view format) {
   // TODO: Does not account for VOIDs
 
-  int remainder_size = input.length() % 3;
-  bool all_codons_full = (remainder_size == 0);
+  if (format == "AGCT") {
+    int remainder_size = input.length() % 3;
+    bool all_codons_full = (remainder_size == 0);
 
-  this->seq.reserve(static_cast<std::size_t>(
-      (all_codons_full) ? static_cast<int>(input.length() / 3) * 1.2
-                        : (static_cast<int>(input.length() / 3) + 1) * 1.2));
+    this->seq.reserve(static_cast<std::size_t>(
+        (all_codons_full) ? static_cast<int>(input.length() / 3) * 1.2
+                          : (static_cast<int>(input.length() / 3) + 1) * 1.2));
 
-  PLOGD << "Generating Seq:\n" << input;
+    PLOGD << "Generating Seq:\n" << input;
 
-  for (int i = 0; i < input.length() / 3; i++) {
-    this->seq.emplace_back(codon::Codon(input.substr(i * 3, 3)));
+    for (int i = 0; i < input.length() / 3; i++) {
+      this->seq.emplace_back(codon::Codon(input.substr(i * 3, 3)));
+    }
+
+    if (!all_codons_full) {
+      this->seq.emplace_back(
+          codon::Codon(input.substr(input.length() - remainder_size)));
+    }
+    PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
+
+  } else if (format == "encoded") {
+    this->seq.reserve(input.size());
+
+    PLOGD << "Generating Seq:\n" << input;
+
+    for (const char& enc_char : input) {
+      this->seq.emplace_back(codon::Codon(enc_char));
+    }
+
+    PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
+
+  } else {
+    std::string message(
+        "Expected 'AGCT' or 'encoded' as param 'format' for constructor. "
+        "Received: ");
+    message.append(format);
+    throw std::invalid_argument(message);
   }
-
-  if (!all_codons_full) {
-    this->seq.emplace_back(
-        codon::Codon(input.substr(input.length() - remainder_size)));
-  }
-  PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
 }
 
 codon::Seq::Seq(const std::size_t& size) { this->seq.reserve(size); }
@@ -1045,4 +1066,12 @@ void codon::Seq::hm_handleMemoryAndError(codon::Seq insert,
         static_cast<std::size_t>((this->seq.size() + insert.seq.size()) * 1.2));
     PLOGD << "RESERVING MORE MEMORY FOR SEQUENCE";
   };
+}
+
+std::string codon::Seq::get_seq_encoded() const {
+  std::stringstream ss;
+  for (const codon::Codon& codon : this->seq) {
+    ss << codon.get_bases_encoded();
+  }
+  return ss.str();
 }

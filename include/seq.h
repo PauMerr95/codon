@@ -68,7 +68,7 @@ class Seq {
                           codon::Codon& second_anneal);
 
  public:
-  Seq(std::string_view input);
+  Seq(std::string_view input, std::string_view format = "AGCT");
   Seq(const codon::Codon& codon_copy);
   Seq(codon::Codon&& codon_move);
   Seq(const std::size_t& size);
@@ -98,6 +98,7 @@ class Seq {
 
   std::string get_seq_str() const;
   std::string get_seq_strsep() const;
+  std::string get_seq_encoded() const;
 
   std::vector<std::bitset<8>> get_seq_bin() const;
   codon::Codon get_codon_at(const codon::locator& locator, int size_cut = 3,
