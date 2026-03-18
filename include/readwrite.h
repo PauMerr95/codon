@@ -15,11 +15,11 @@ struct Fasta {
   Fasta(codon::Fasta&) = default;
   Fasta(codon::Fasta&&) noexcept = default;
 
-  void write_FASTA(std::string_view path_out = "cout");
+  void write_FASTA(const std::string& path_in = "cout");
   void write_FASTA(std::pair<codon::locator, codon::locator> segment,
                    std::string_view path_out = "cout");
 
-  void write_CODON(std::string_view path_out = "cout");
+  void write_CODON(const std::string& path_in = "cout");
   void write_CODON(std::pair<codon::locator, codon::locator> segment,
                    std::string_view path_out = "cout");
 };

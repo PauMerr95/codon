@@ -37,6 +37,12 @@ codon::Fasta::Fasta(codon::Seq sequence, std::string name, std::string comments)
 
 codon::Fasta codon::load(const std::string& path_in) {
   std::ifstream file{path_in};
+  std::string_view file_format(path_in);
+  file_format.remove_prefix(path_in.find_last_of('.'));
+  if (file_format.empty()) {
+    throw std::invalid_argument(
+        "Tried to load invalid path (no file_format found)");
+  }
 
   if (!file.is_open()) {
     std::string message{"Failed to open "};
@@ -81,7 +87,8 @@ codon::Fasta codon::load(const std::string& path_in) {
             line.push_back(iss.get());
           }
           PLOGD << "Final extracted line: " << line;
-          fasta.sequence.push_back(codon::Seq(line));
+          fasta.sequence.push_back(
+              codon::Seq(line, (file_format == ".codon") ? "encoded" : "AGCT"));
         }
       }
     }
@@ -109,7 +116,8 @@ codon::Fasta codon::load(const std::string& path_in) {
             PLOGD << "Trying to get a new character to fill up.";
             line.push_back(iss.get());
           }
-          fasta.sequence.push_back(codon::Seq(line));
+          fasta.sequence.push_back(
+              codon::Seq(line, (file_format == ".codon") ? "encoded" : "AGCT"));
         }
       }
     }
@@ -121,8 +129,15 @@ codon::Fasta codon::load(const std::string& path_in) {
 std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
   // verify format
   std::ifstream file{path_in};
+
   std::vector<codon::Fasta> output;
   output.reserve(10);
+  std::string_view file_format(path_in);
+  file_format.remove_prefix(path_in.find_last_of('.'));
+  if (file_format.empty()) {
+    throw std::invalid_argument(
+        "Tried to load invalid path (no file_format found)");
+  }
 
   if (!file.is_open()) {
     std::string message{"Failed to open "};
@@ -154,7 +169,8 @@ std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
               PLOGD << "Trying to get a new character to fill up.";
               line.push_back(iss.get());
             }
-            output[idx_Fasta].sequence.push_back(codon::Seq(line));
+            output[idx_Fasta].sequence.push_back(codon::Seq(
+                line, (file_format == ".codon") ? "encoded" : "AGCT"));
           }
         }
       }
@@ -178,7 +194,8 @@ std::vector<codon::Fasta> codon::load_multiple(const std::string& path_in) {
               PLOGD << "Trying to get a new character to fill up.";
               line.push_back(iss.get());
             }
-            output[idx_Fasta].sequence.push_back(codon::Seq(line));
+            output[idx_Fasta].sequence.push_back(codon::Seq(
+                line, (file_format == ".codon") ? "encoded" : "AGCT"));
           }
         }
       }
@@ -201,26 +218,56 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
   }
 }
 
-void codon::Fasta::write_FASTA(std::string_view path_out) {
+void codon::Fasta::write_FASTA(const std::string& path_out) {
   if (path_out == "cout") {
     std::cout << this->name << "\n";
     if (!this->comments.empty() && this->comments != "N/A") {
       std::cout << this->comments << "\n";
     }
     std::cout << this->sequence.get_seq_str() << "\n";
-  } else {
-    std::cerr << "Write to file not yet implemented";
   }
+  std::ofstream file(path_out);
+
+  if (!file.is_open()) {
+    std::string message{"Failed to open "};
+    message += path_out;
+    message +=
+        ". Close file if already open and verify if correct path was passed.";
+    throw std::runtime_error(message);
+  }
+  std::ostringstream oss;
+  oss << this->name << "\n";
+  if (!this->comments.empty() && this->comments != "N/A") {
+    oss << this->comments << "\n";
+  }
+  oss << this->sequence.get_seq_str() << "\n";
+  file << oss.str();
+  file.close();
 }
 
-void codon::Fasta::write_CODON(std::string_view path_out) {
+void codon::Fasta::write_CODON(const std::string& path_out) {
   if (path_out == "cout") {
     std::cout << this->name << "\n";
     if (!this->comments.empty() && this->comments != "N/A") {
       std::cout << this->comments << "\n";
     }
     std::cout << this->sequence.get_seq_encoded() << "\n";
-  } else {
-    std::cerr << "Write to file not yet implemented";
   }
+  std::ofstream file(path_out);
+
+  if (!file.is_open()) {
+    std::string message{"Failed to open "};
+    message += path_out;
+    message +=
+        ". Close file if already open and verify if correct path was passed.";
+    throw std::runtime_error(message);
+  }
+  std::ostringstream oss;
+  oss << this->name << "\n";
+  if (!this->comments.empty() && this->comments != "N/A") {
+    oss << this->comments << "\n";
+  }
+  oss << this->sequence.get_seq_encoded() << "\n";
+  file << oss.str();
+  file.close();
 }
