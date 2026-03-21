@@ -41,6 +41,7 @@ target_include_directories(codon_lib
 	PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/plog/include
+    ${PROJECT_SOURCE_DIR}/include/indicators
 )
 
 # -- imported compiler options --
@@ -51,7 +52,7 @@ target_compile_options(codon_lib
 )
 
 # -- main executable / you can change the name here--
-add_executable(codon src/main.cpp src/logging.cpp)
+add_executable(codon src/main.cpp src/logging.cpp src/cl_arg.cpp)
 
 target_link_libraries(codon
 	PRIVATE
@@ -62,6 +63,7 @@ target_compile_definitions(codon
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
 )
+
 
 # -- testing ---
 include(FetchContent)
