@@ -17,6 +17,9 @@ class Codon {
   Codon(std::string_view bases_str);
   Codon(base base);
   Codon(char encoded_char);
+  Codon(const codon::Codon* const other);
+  Codon(const codon::Codon& other);
+  Codon(codon::Codon&& other) noexcept;
   ~Codon();
 
   bool is_full() const;
@@ -37,6 +40,18 @@ class Codon {
   base squeeze_right(base base);
   base squeeze_left(base base);
   base pop(int loc = 0);
+
+  codon::Codon reverse() const;
+  void reverse_inplace();
+
+  codon::Codon operator=(const codon::Codon& other) {
+    this->bases = other.bases;
+    return *this;
+  }
+  codon::Codon operator=(codon::Codon&& other) {
+    this->bases = other.bases;
+    return *this;
+  }
 };
 
 }  // namespace codon

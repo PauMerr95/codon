@@ -1,5 +1,4 @@
 #include <future>
-#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,7 +37,11 @@ void display_help();
 
 void log_caller(const codon::cli::Args& arguments);
 
-void loader(std::promise<codon::Seq>&& promised_seq, const Args& caller);
+void loader(std::promise<codon::Seq>&& promised_seq, const Args& caller,
+            bool& s_is_work_done);
+void runner(std::promise<codon::Seq>&& promised_seq, const Args& caller,
+            bool& s_is_work_done, codon::Seq loaded_DNA);
+void writer(const codon::Seq& seq, const Args& caller, bool& s_is_work_done);
 
 }  // namespace cli
 }  // namespace codon

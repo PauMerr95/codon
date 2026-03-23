@@ -6,5 +6,6 @@ cmake/
 .git/
 include/Catch2
 include/plog
+include/indicators
 *.cfg
-.bat
+*.bat

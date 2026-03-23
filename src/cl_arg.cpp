@@ -2,6 +2,7 @@
 
 #include <plog/Log.h>
 
+#include <chrono>
 #include <cstddef>
 #include <iostream>
 #include <sstream>
@@ -207,7 +208,7 @@ void codon::cli::display_banner() {
   std::cout << "  / ___|  / _ \\  |  _ \\   / _ \\  | \\ | |\n";
   std::cout << " | |     | | | | | | | | | | | | |  \\| |\n";
   std::cout << " | |___  | |_| | | |_| | | |_| | | |\\  |\n";
-  std::cout << "  \\____|  \\___/  |____/   \\___/  |_| \\_|\n";
+  std::cout << "  \\____|  \\___/  |____/   \\___/  |_| \\_|\n\n";
 }
 
 void codon::cli::log_caller(const codon::cli::Args& arg) {
@@ -250,7 +251,57 @@ void codon::cli::log_caller(const codon::cli::Args& arg) {
 }
 
 void codon::cli::loader(std::promise<codon::Seq>&& promised_seq,
-                        const Args& caller) {
+                        const Args& caller, bool& s_is_work_thread_done) {
+  auto start = std::chrono::high_resolution_clock::now();
   codon::Fasta loaded_DNA_fna(std::move(codon::load(caller.path_in)));
   promised_seq.set_value(loaded_DNA_fna.sequence);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+  std::cout << "Duration: " << duration.count() << " sec\n";
+  s_is_work_thread_done = true;
+}
+
+void codon::cli::runner(std::promise<codon::Seq>&& promised_seq,
+                        const Args& caller, bool& s_is_work_thread_done,
+                        codon::Seq sequence) {
+  codon::locator begin{caller.range.first};
+  codon::locator final;
+  if (caller.range.second == codon::locator(0, 1)) {
+    codon::locator final{sequence.get_last_loc()};
+  } else {
+    codon::locator final{caller.range.second};
+  }
+  if (caller.load_range_only)
+    sequence = std::move(sequence.subseq(begin, final));
+
+  for (const Operation& operation : caller.operations) {
+    switch (operation) {
+      case Operation::Reverse:     // TODO: Implement in sequence.cpp
+      case Operation::Complement:  // TODO: Implement in sequence.cpp
+      default:
+        break;
+    }
+  }
+  promised_seq.set_value(sequence);
+}
+
+void codon::cli::writer(const codon::Seq& sequence,
+                        const codon::cli::Args& caller, bool& s_is_work_done) {
+  auto start = std::chrono::high_resolution_clock::now();
+  codon::Fasta output(sequence, "Unspecified");
+
+  // determine output file
+  if (caller.path_out.empty()) {
+    output.write_FASTA();
+  }
+  if (caller.path_out.rfind(".codon") != std::string::npos) {
+    output.write_CODON(caller.path_out);
+  } else {
+    output.write_FASTA(caller.path_out);
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+  std::cout << "Duration: " << duration.count() << " sec\n";
+  s_is_work_done = true;
+  return;
 }

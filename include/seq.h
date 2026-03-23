@@ -14,26 +14,26 @@ struct locator {
 
   locator(std::size_t index = 0, int shift = 1);
 
-  bool operator>(const codon::locator& other) {
+  bool operator>(const codon::locator& other) const {
     return (this->index > other.index ||
             ((this->index == other.index) && (this->shift > other.shift)));
   }
-  bool operator>=(const codon::locator& other) {
+  bool operator>=(const codon::locator& other) const {
     return (this->index > other.index ||
             ((this->index == other.index) && (this->shift >= other.shift)));
   }
-  bool operator<(const codon::locator& other) {
+  bool operator<(const codon::locator& other) const {
     return (this->index < other.index ||
             ((this->index == other.index) && (this->shift < other.shift)));
   }
-  bool operator<=(const codon::locator& other) {
+  bool operator<=(const codon::locator& other) const {
     return (this->index < other.index ||
             ((this->index == other.index) && (this->shift <= other.shift)));
   }
-  bool operator==(const codon::locator& other) {
+  bool operator==(const codon::locator& other) const {
     return ((this->index == other.index) && (this->shift == other.shift));
   }
-  bool operator!=(const codon::locator& other) {
+  bool operator!=(const codon::locator& other) const {
     return ((this->index != other.index) || (this->shift != other.shift));
   }
 
@@ -46,7 +46,7 @@ struct locator {
   codon::locator operator-(std::size_t move_l_bp);
 
   void verify_shift() const;
-  std::size_t distance_to(const codon::locator& other);
+  std::size_t distance_to(const codon::locator& other) const;
 };
 
 class Seq {
@@ -73,11 +73,21 @@ class Seq {
   Seq(codon::Codon&& codon_move);
   Seq(const std::size_t& size);
   // copyconstructor
+  Seq(const codon::Seq* const other);
   Seq(const codon::Seq&) = default;
   // moveconstructor
   Seq(codon::Seq&&) noexcept = default;
 
   ~Seq();
+
+  codon::Seq operator=(const codon::Seq& codon_copy) {
+    this->seq = codon_copy.seq;
+    return *this;
+  };
+  codon::Seq operator=(codon::Seq&& codon_move) noexcept {
+    this->seq = codon_move.seq;
+    return *this;
+  };
 
   void insert_base(codon::base base, codon::locator locator);
   void insert_codon(codon::Codon codon, codon::locator locator);
@@ -95,6 +105,17 @@ class Seq {
 
   void left_shift(std::size_t upto_loc = 0);
   void right_shift(std::size_t upto_loc = 0);
+
+  void reverse_inplace();
+  void reverse_inplace(const codon::locator& start, const codon::locator& end);
+  codon::Seq reverse() const;
+  codon::Seq reverse(const codon::locator& start,
+                     const codon::locator& end) const;
+
+  void flip_strand_inplace();
+  void flip_strand_inplace(codon::locator start, codon::locator end);
+  codon::Seq flip_strand();
+  codon::Seq flip_strand(codon::locator start, codon::locator end);
 
   std::string get_seq_str() const;
   std::string get_seq_strsep() const;

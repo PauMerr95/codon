@@ -1,9 +1,4 @@
-#include <cl_arg.h>
-#include <plog/Log.h>
-#include <readwrite.h>
-
 #include <chrono>
-#include <cstdio>
 #include <exception>
 #include <functional>
 #include <future>
@@ -11,9 +6,19 @@
 #include <stdexcept>
 #include <thread>
 
+#include "cl_arg.h"
+#include "indicators/color.hpp"
+#include "indicators/cursor_control.hpp"
+#include "indicators/indeterminate_progress_bar.hpp"
+#include "indicators/setting.hpp"
+#include "plog/Log.h"
+#include "readwrite.h"
 #include "seq.h"
 
+void run_loading_bar(bool& s_stop_signal, const std::string& task_name);
+
 int main(int argc, char* argv[]) {
+  codon::cli::display_banner();
   try {
     codon::cli::Args caller{codon::cli::parse_args(argc, argv)};
 
@@ -23,14 +28,36 @@ int main(int argc, char* argv[]) {
     }
     codon::cli::log_caller(caller);
     std::promise<codon::Seq> promise_loaded_DNA;
-    auto f_loaded = promise_loaded_DNA.get_future();
+    auto future_loaded = promise_loaded_DNA.get_future();
+    static bool s_is_work_thread_done{false};
     std::thread worker_load(codon::cli::loader, std::move(promise_loaded_DNA),
-                            std::cref(caller));
+                            std::cref(caller), std::ref(s_is_work_thread_done));
 
-    // Do the whole loading bar stuff
+    run_loading_bar(s_is_work_thread_done,
+                    "Loading and preparing DNA sequence");
 
     worker_load.join();
-    codon::Seq loaded_Seq(f_loaded.get());
+    codon::Seq loaded_DNA(future_loaded.get());
+
+    std::promise<codon::Seq> promise_changed_DNA;
+    auto future_changed = promise_changed_DNA.get_future();
+    s_is_work_thread_done = false;
+    std::thread worker_run(codon::cli::runner, std::move(promise_changed_DNA),
+                           std::cref(caller), std::ref(s_is_work_thread_done),
+                           loaded_DNA);
+
+    run_loading_bar(s_is_work_thread_done, "Manipulating sequence.");
+
+    worker_run.join();
+    codon::Seq changed_DNA{future_changed.get()};
+
+    s_is_work_thread_done = false;
+    std::thread worker_write(codon::cli::writer, changed_DNA, std::cref(caller),
+                             std::ref(s_is_work_thread_done));
+
+    run_loading_bar(s_is_work_thread_done, "Manipulating sequence.");
+
+    worker_run.join();
 
   } catch (const std::runtime_error& e) {
     std::cout << "Runtime error triggered: " << e.what();
@@ -86,8 +113,7 @@ int main(int argc, char* argv[]) {
       auto duration_load_codon =
           std::chrono::duration_cast<std::chrono::microseconds>(end_load_codon -
                                                                 start_load_codon);
-
-      auto duration_write_fasta =
+auto duration_write_fasta =
           std::chrono::duration_cast<std::chrono::microseconds>(
               end_write_fasta - start_write_fasta);
       auto duration_write_codon =
@@ -110,4 +136,27 @@ int main(int argc, char* argv[]) {
     }
     */
   return 0;
+}
+
+void run_loading_bar(bool& s_stop_signal, const std::string& task_name) {
+  indicators::IndeterminateProgressBar bar{
+      indicators::option::BarWidth{45},
+      indicators::option::Start{"["},
+      indicators::option::Fill{"AGT|CAT|ATA|TGA|GAA|GAC|GAT|CGA|TTC|GAT|CGA"},
+      indicators::option::Lead{"███"},
+      indicators::option::End{"]"},
+      indicators::option::PostfixText{task_name},
+      indicators::option::ForegroundColor{indicators::Color::yellow},
+  };
+
+  indicators::show_console_cursor(false);
+
+  while (!s_stop_signal) {
+    bar.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  bar.set_option(indicators::option::Fill("█"));
+  bar.set_option(indicators::option::ForegroundColor(indicators::Color::green));
+  bar.is_completed();
+  indicators::show_console_cursor(true);
 }

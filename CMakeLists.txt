@@ -41,7 +41,7 @@ target_include_directories(codon_lib
 	PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/plog/include
-    ${PROJECT_SOURCE_DIR}/include/indicators
+    ${PROJECT_SOURCE_DIR}/include/indicators/include
 )
 
 # -- imported compiler options --

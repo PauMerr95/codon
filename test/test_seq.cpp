@@ -48,9 +48,8 @@ int test::seq_test() {
   std::vector<codon::Seq> test_sequences{seq_build(arr_seq)};
   try {
     /* TODO: Check access operations ...
-     *
      * test::check_access(test_sequences);
-     *  PLOGD << "Check accessing completed";
+     *PLOGD << "Check accessing completed";
      */
 
     test::check_shifting(test_sequences);
@@ -76,6 +75,9 @@ int test::seq_test() {
 
     test::check_pushback_seqs(test_sequences, seq_inserts);
     PLOGD << "Check pushback_seqs completed";
+
+    test::check_reversal(test_sequences);
+    PLOGD << "Check reversal for sequences completed";
 
   } catch (std::invalid_argument &exception) {
     PLOGF << "Invalid argument supplied: " << exception.what();
@@ -564,36 +566,87 @@ void test::check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
         PLOGD << "Edge case: Pushing back empty sequence.";
         REQUIRE_THROWS(curr_seq.push_back(curr_insert));
         PLOGD << "Edge case: Passed.";
-      } else {
-        codon::locator insert_loc{curr_seq.get_last_loc()};
-        std::string seq_init{curr_seq.get_seq_str()};
-        std::size_t bp_init{curr_seq.get_seq_trulen("bp")};
-
-        curr_seq.push_back(curr_insert);
-
-        PLOGD << "Sequence after push_back:\n" << curr_seq.get_seq_strsep();
-
-        std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
-
-        codon::Seq popped_seq =
-            curr_seq.pop_seq(insert_loc + 1, curr_seq.get_last_loc());
-        std::string curr_seq_after_removal{curr_seq.get_seq_str()};
-        std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
-
-        PLOGD << "Sequence after pop_seq:\n" << curr_seq.get_seq_strsep();
-        PLOGD << "Original insert vs. popped one:\n"
-              << curr_insert.get_seq_strsep() << "\n"
-              << popped_seq.get_seq_strsep();
-
-        REQUIRE(bp_init == bp_after_removal);
-        REQUIRE(bp_init + curr_insert.get_seq_trulen("bp") == bp_after_insert);
-        REQUIRE(seq_init == curr_seq_after_removal);
-        REQUIRE(curr_insert.get_seq_str() == popped_seq.get_seq_str());
-
-        PLOGD << "Passed push_back check on sequence:\n"
-              << curr_seq.get_seq_strsep()
-              << "\nwith insert: " << curr_insert.get_seq_strsep();
+        continue;
       }
+
+      codon::locator insert_loc{curr_seq.get_last_loc()};
+      std::string seq_init{curr_seq.get_seq_str()};
+      std::size_t bp_init{curr_seq.get_seq_trulen("bp")};
+
+      curr_seq.push_back(curr_insert);
+
+      PLOGD << "Sequence after push_back:\n" << curr_seq.get_seq_strsep();
+
+      std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
+
+      codon::Seq popped_seq =
+          curr_seq.pop_seq(insert_loc + 1, curr_seq.get_last_loc());
+      std::string curr_seq_after_removal{curr_seq.get_seq_str()};
+      std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
+
+      PLOGD << "Sequence after pop_seq:\n" << curr_seq.get_seq_strsep();
+      PLOGD << "Original insert vs. popped one:\n"
+            << curr_insert.get_seq_strsep() << "\n"
+            << popped_seq.get_seq_strsep();
+
+      REQUIRE(bp_init == bp_after_removal);
+      REQUIRE(bp_init + curr_insert.get_seq_trulen("bp") == bp_after_insert);
+      REQUIRE(seq_init == curr_seq_after_removal);
+      REQUIRE(curr_insert.get_seq_str() == popped_seq.get_seq_str());
+
+      PLOGD << "Passed push_back check on sequence:\n"
+            << curr_seq.get_seq_strsep()
+            << "\nwith insert: " << curr_insert.get_seq_strsep();
     }
+  }
+}
+
+void test::check_reversal(std::vector<codon::Seq> &vec_seq) {
+  PLOGD << "Checking reversals.";
+  for (codon::Seq &curr_seq : vec_seq) {
+    PLOGD << "Current sequence:\n" << curr_seq.get_seq_strsep();
+    if (curr_seq.get_seq_len() <= 0) continue;
+
+    // Complete reversal
+    std::string str_seq_original{std::move(curr_seq.get_seq_str())};
+    std::string rstr_seq_original{
+        std::string(str_seq_original.rbegin(), str_seq_original.rend())};
+    PLOGD << "Complete Reversal by stringmethod:\n" << rstr_seq_original;
+    PLOGD << "Complete Reversal by codonmethod:\n"
+          << curr_seq.reverse().get_seq_strsep();
+    REQUIRE(rstr_seq_original == curr_seq.reverse().get_seq_str());
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
+    curr_seq.reverse_inplace();
+    PLOGD << "Complete Reversal (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(rstr_seq_original == curr_seq.get_seq_str());
+    curr_seq.reverse_inplace();
+    PLOGD << "Complete Double Reversal (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
+    // Partial reversal
+    int len_seq_bp = str_seq_original.size();
+    int bp_start = len_seq_bp * 0.2;
+    int bp_end = len_seq_bp * 0.6;
+    std::string partially_reversed{str_seq_original};
+    std::reverse(partially_reversed.begin() + (bp_start - 1),
+                 partially_reversed.begin() + bp_end);
+    codon::locator start(codon::locator(0, 1) + (bp_start - 1));
+    codon::locator end(codon::locator(0, 1) + (bp_end - 1));
+    PLOGD << "Partial Reversal by stringmethod:\n" << partially_reversed;
+    PLOGD << "Partial Reversal by codonmethod:\n"
+          << curr_seq.reverse(start, end).get_seq_strsep();
+    REQUIRE(partially_reversed == curr_seq.reverse(start, end).get_seq_str());
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+    curr_seq.reverse_inplace(start, end);
+    PLOGD << "Partial Reversal (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(partially_reversed == curr_seq.get_seq_str());
+    curr_seq.reverse_inplace(start, end);
+    PLOGD << "Partial Double Reversal (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
   }
 }
