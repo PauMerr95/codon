@@ -47,10 +47,7 @@ int test::seq_test() {
   // compiler should optimise ReturnValueOptimization
   std::vector<codon::Seq> test_sequences{seq_build(arr_seq)};
   try {
-    /* TODO: Check access operations ...
-     * test::check_access(test_sequences);
-     *PLOGD << "Check accessing completed";
-     */
+    // TODO: add check access
 
     test::check_shifting(test_sequences);
     PLOGD << "Check shifting completed";
@@ -78,6 +75,9 @@ int test::seq_test() {
 
     test::check_reversal(test_sequences);
     PLOGD << "Check reversal for sequences completed";
+
+    test::check_flip(test_sequences);
+    PLOGD << "Check flip for sequences completed";
 
   } catch (std::invalid_argument &exception) {
     PLOGF << "Invalid argument supplied: " << exception.what();
@@ -635,17 +635,99 @@ void test::check_reversal(std::vector<codon::Seq> &vec_seq) {
                  partially_reversed.begin() + bp_end);
     codon::locator start(codon::locator(0, 1) + (bp_start - 1));
     codon::locator end(codon::locator(0, 1) + (bp_end - 1));
+
     PLOGD << "Partial Reversal by stringmethod:\n" << partially_reversed;
     PLOGD << "Partial Reversal by codonmethod:\n"
           << curr_seq.reverse(start, end).get_seq_strsep();
+
     REQUIRE(partially_reversed == curr_seq.reverse(start, end).get_seq_str());
     REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
     curr_seq.reverse_inplace(start, end);
+
     PLOGD << "Partial Reversal (inplace) by codonmethod:\n"
           << curr_seq.get_seq_strsep();
     REQUIRE(partially_reversed == curr_seq.get_seq_str());
+
     curr_seq.reverse_inplace(start, end);
+
     PLOGD << "Partial Double Reversal (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+  }
+}
+
+void test::check_flip(std::vector<codon::Seq> &vec_seq) {
+  PLOGD << "Checking flipping.";
+  for (codon::Seq &curr_seq : vec_seq) {
+    PLOGD << "Current sequence:\n" << curr_seq.get_seq_strsep();
+    if (curr_seq.get_seq_len() <= 0) continue;
+
+    auto lambda_flip_char = [](char &base) {
+      switch (base) {
+        case 'A':
+          base = 'T';
+          break;
+        case 'G':
+          base = 'C';
+          break;
+        case 'C':
+          base = 'G';
+          break;
+        case 'T':
+          base = 'A';
+          break;
+        default:
+          return;
+      }
+    };
+    // Complete reversal
+    std::string str_seq_original{std::move(curr_seq.get_seq_str())};
+    std::string flipped_seq_original{str_seq_original};
+    std::for_each(flipped_seq_original.begin(), flipped_seq_original.end(),
+                  lambda_flip_char);
+
+    PLOGD << "Complete Flip by stringmethod:\n" << flipped_seq_original;
+    PLOGD << "Complete Flip by codonmethod:\n"
+          << curr_seq.flip().get_seq_strsep();
+    REQUIRE(flipped_seq_original == curr_seq.flip().get_seq_str());
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
+    curr_seq.flip_inplace();
+    PLOGD << "Complete Flip (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(flipped_seq_original == curr_seq.get_seq_str());
+    curr_seq.flip_inplace();
+    PLOGD << "Complete Double Flip (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
+    // Partial flip
+    int len_seq_bp = str_seq_original.size();
+    int bp_start = len_seq_bp * 0.2;
+    int bp_end = len_seq_bp * 0.6;
+    std::string partially_flipped{str_seq_original};
+    std::for_each(partially_flipped.begin() + (bp_start - 1),
+                  partially_flipped.begin() + bp_end, lambda_flip_char);
+    codon::locator start(codon::locator(0, 1) + (bp_start - 1));
+    codon::locator end(codon::locator(0, 1) + (bp_end - 1));
+
+    PLOGD << "Partial Flip by stringmethod:\n" << partially_flipped;
+    PLOGD << "Partial Flip by codonmethod:\n"
+          << curr_seq.flip(start, end).get_seq_strsep();
+
+    REQUIRE(partially_flipped == curr_seq.flip(start, end).get_seq_str());
+    REQUIRE(str_seq_original == curr_seq.get_seq_str());
+
+    curr_seq.flip_inplace(start, end);
+
+    PLOGD << "Partial Flip (inplace) by codonmethod:\n"
+          << curr_seq.get_seq_strsep();
+
+    REQUIRE(partially_flipped == curr_seq.get_seq_str());
+    curr_seq.flip_inplace(start, end);
+    PLOGD << "Partial Double Flip (inplace) by codonmethod:\n"
           << curr_seq.get_seq_strsep();
     REQUIRE(str_seq_original == curr_seq.get_seq_str());
   }

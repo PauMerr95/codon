@@ -292,6 +292,78 @@ void codon::Seq::reverse_inplace(const codon::locator& start,
   PLOGD << "Shifted to close gaps.";
 }
 
+codon::Seq codon::Seq::flip() const {
+  codon::Seq copy(this);
+  PLOGD << "Created copy inside flip and calling flip_inplace(first loc, "
+           "last loc)";
+  copy.flip_inplace(copy.get_first_loc(), copy.get_last_loc());
+  return copy;
+}
+
+codon::Seq codon::Seq::flip(codon::locator start, codon::locator end) const {
+  codon::Seq copy(this);
+  PLOGD << "Created copy inside flip and calling flip_inplace(first loc, "
+           "last loc)";
+  copy.flip_inplace(start, end);
+  return copy;
+}
+
+void codon::Seq::flip_inplace() {
+  this->flip_inplace(this->get_first_loc(), this->get_last_loc());
+}
+
+void codon::Seq::flip_inplace(codon::locator start, codon::locator end) {
+  if (!this->is_locator_valid(start) || !this->is_locator_valid(end)) {
+    PLOGD << "Invalid locator passed to reverse_inplace(loc, loc)";
+    throw std::invalid_argument(
+        "Invalid locators passed to reverse_inplace function call");
+  }
+  start.verify_shift();
+  end.verify_shift();
+  std::stringstream ss;
+
+  int len_end{this->seq[end.index].get_bases_len()};
+  bool flip_start{(start.shift == 1) ? true : false};
+  bool flip_end{(end.shift == len_end) ? true : false};
+  ss << "Flipping sequence from {" << start.index << ", " << start.shift
+     << "} to {" << end.index << ", " << end.shift
+     << "\nflip_start = " << ((flip_start) ? "True" : "False")
+     << "\nflip_end   = " << ((flip_end) ? "True" : "False")
+     << "\nStart Codon = " << this->seq[start.index].get_bases_str()
+     << "\nFinal Codon = " << this->seq[end.index].get_bases_str();
+  // left side
+  if (!flip_start) {
+    codon::Codon& start_codon{this->seq[start.index]};
+    int amount_flip{start_codon.get_bases_len() - start.shift + 1};
+    codon::Codon temp("VOID");
+    while (amount_flip--) {
+      temp.insert_right(start_codon.pop());
+    }
+    temp.flip_inplace();
+    while (!temp.is_empty()) {
+      start_codon.insert_right(temp.pop());
+    }
+  }
+  if (!flip_end) {
+    codon::Codon& end_codon{this->seq[end.index]};
+    int amount_flip{start.shift};
+    codon::Codon temp("VOID");
+    while (amount_flip--) {
+      temp.insert_left(end_codon.pop(1));
+    }
+    temp.flip_inplace();
+    while (!temp.is_empty()) {
+      end_codon.insert_left(temp.pop(1));
+    }
+  }
+  std::for_each(this->seq.begin() + start.index + ((flip_start) ? 0 : 1),
+                this->seq.begin() + end.index + ((flip_end) ? 1 : 0),
+                [](codon::Codon& codon) { codon.flip_inplace(); });
+  ss << "\nStart Codon flipped = " << this->seq[start.index].get_bases_str()
+     << "\nFinal Codon flipped = " << this->seq[end.index].get_bases_str();
+  PLOGD << ss.str();
+}
+
 void codon::Seq::insert_base(codon::base base, codon::locator locator) {
   if (this->seq.at(locator.index).get_bases_len() < 3) {
     // incase locator.index is already an incomplete codon

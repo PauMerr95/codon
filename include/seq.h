@@ -112,10 +112,10 @@ class Seq {
   codon::Seq reverse(const codon::locator& start,
                      const codon::locator& end) const;
 
-  void flip_strand_inplace();
-  void flip_strand_inplace(codon::locator start, codon::locator end);
-  codon::Seq flip_strand();
-  codon::Seq flip_strand(codon::locator start, codon::locator end);
+  void flip_inplace();
+  void flip_inplace(codon::locator start, codon::locator end);
+  codon::Seq flip() const;
+  codon::Seq flip(codon::locator start, codon::locator end) const;
 
   std::string get_seq_str() const;
   std::string get_seq_strsep() const;

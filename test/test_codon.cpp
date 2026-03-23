@@ -9,6 +9,32 @@
 #include "random.h"
 #include "testing.h"
 
+int test::codon_test() {
+  std::vector<std::string> arr_bases_str = {
+      "TCA", "GGG", "AGC", "GTA", "CAT", "TTT",    "ACT", "AAA", "VOID", "GG",
+      "AA",  "TC",  "CA",  "T",   "A",   "GGA",    "ACG", "C",   "CC",   "AC",
+      "CT",  "GAC", "CGA", "CAG", "CAA", "SWITCH", "ACC", "TAA", "TTA"};
+  codon::base arr_bases[4] = {codon::A, codon::G, codon::C, codon::T};
+
+  std::vector<codon::Codon> codons_generated(arr_bases_str.size(),
+                                             codon::Codon("VOID"));
+
+  test::check_creation_str(arr_bases_str, codons_generated);
+  test::check_creation_base(arr_bases, 4);
+  PLOGD << "Passed creation check";
+
+  test::check_operations(codons_generated);
+  PLOGD << "Passed operations check";
+
+  test::check_reversal(codons_generated);
+  PLOGD << "Passed reversal check";
+
+  test::check_flip(codons_generated);
+  PLOGD << "Passed reversal check";
+
+  return 0;
+}
+
 void test::check_creation_str(std::vector<std::string> arr_bases) {
   for (std::string bases : arr_bases) {
     codon::Codon triplet_temp = codon::Codon(bases);
@@ -166,24 +192,44 @@ void test::check_reversal(std::vector<codon::Codon> codons) {
   }
 }
 
-int test::codon_test() {
-  std::vector<std::string> arr_bases_str = {
-      "TCA", "GGG", "AGC", "GTA", "CAT", "TTT",    "ACT", "AAA", "VOID", "GG",
-      "AA",  "TC",  "CA",  "T",   "A",   "GGA",    "ACG", "C",   "CC",   "AC",
-      "CT",  "GAC", "CGA", "CAG", "CAA", "SWITCH", "ACC", "TAA", "TTA"};
-  codon::base arr_bases[4] = {codon::A, codon::G, codon::C, codon::T};
+void flip_string(std::string& codon) {
+  for (char& base : codon) {
+    switch (base) {
+      case 'A':
+        base = 'T';
+        break;
+      case 'G':
+        base = 'C';
+        break;
+      case 'C':
+        base = 'G';
+        break;
+      case 'T':
+        base = 'A';
+        break;
+      default:
+        return;
+    }
+  }
+}
 
-  std::vector<codon::Codon> codons_generated(arr_bases_str.size(),
-                                             codon::Codon("VOID"));
+void test::check_flip(std::vector<codon::Codon> codons) {
+  for (codon::Codon& curr_codon : codons) {
+    if (curr_codon.get_bases_len() <= 0) continue;
 
-  test::check_creation_str(arr_bases_str, codons_generated);
-  test::check_creation_base(arr_bases, 4);
-  PLOGD << "Passed creation check";
+    std::string original_codon_str{curr_codon.get_bases_str()};
+    std::string curr_codon_flipped_str{original_codon_str};
+    flip_string(curr_codon_flipped_str);
+    std::string flip_copy{curr_codon.flip().get_bases_str()};
+    REQUIRE(original_codon_str == curr_codon.get_bases_str());
 
-  test::check_operations(codons_generated);
-  PLOGD << "Passed operations check";
-  test::check_reversal(codons_generated);
-  PLOGD << "Passed reversal check";
+    curr_codon.flip_inplace();
+    std::string flip_inplace{curr_codon.get_bases_str()};
+    curr_codon.flip_inplace();
+    std::string reverted_inplace{curr_codon.get_bases_str()};
 
-  return 0;
+    REQUIRE(curr_codon_flipped_str == flip_copy);
+    REQUIRE(curr_codon_flipped_str == flip_inplace);
+    REQUIRE(original_codon_str == reverted_inplace);
+  }
 }

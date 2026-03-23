@@ -44,6 +44,9 @@ class Codon {
   codon::Codon reverse() const;
   void reverse_inplace();
 
+  codon::Codon flip() const;
+  void flip_inplace();
+
   codon::Codon operator=(const codon::Codon& other) {
     this->bases = other.bases;
     return *this;
@@ -51,6 +54,9 @@ class Codon {
   codon::Codon operator=(codon::Codon&& other) {
     this->bases = other.bases;
     return *this;
+  }
+  bool operator==(const codon::Codon& other) const {
+    return (this->bases == other.bases);
   }
 };
 

@@ -35,7 +35,11 @@ if(NOT compiler_opts_loaded_locally)
 endif()
 
 # -- specify libraries used --
-add_library(codon_lib src/codon.cpp src/seq.cpp src/readwrite.cpp)
+add_library(codon_lib
+            src/codon.cpp
+            src/seq.cpp
+            src/readwrite.cpp
+            src/transmute.cpp)
 
 target_include_directories(codon_lib
 	PUBLIC

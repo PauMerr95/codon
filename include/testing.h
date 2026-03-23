@@ -14,6 +14,7 @@ void check_creation_str(std::vector<std::string> arr_bases,
 void check_creation_base(codon::base arr_bases[], int len);
 void check_operations(std::vector<codon::Codon> arr_codons);
 void check_reversal(std::vector<codon::Codon> arr_codons);
+void check_flip(std::vector<codon::Codon> arr_codons);
 
 int locator_test();
 std::vector<codon::locator> check_locator_creation();
@@ -31,6 +32,7 @@ void check_access();
 void check_shifting(std::vector<codon::Seq> &vec_seq);
 
 void check_reversal(std::vector<codon::Seq> &vec_seq);
+void check_flip(std::vector<codon::Seq> &vec_seq);
 
 void check_insertions_bases(std::vector<codon::Seq> &vec_seq,
                             std::vector<codon::base> inserts);

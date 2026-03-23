@@ -456,3 +456,41 @@ void codon::Codon::reverse_inplace() {
   this->bases = static_cast<std::uint8_t>(reversed);
   PLOGD << "Result: " << std::bitset<8>(this->bases);
 }
+
+codon::Codon codon::Codon::flip() const {
+  codon::Codon copy(this);
+  copy.flip_inplace();
+  return copy;
+}
+
+void codon::Codon::flip_inplace() {
+  switch (this->get_bases_len()) {
+    case 3: {
+      unsigned int del_marker{~static_cast<unsigned int>(LOC_0)};
+      unsigned int marker{static_cast<unsigned int>(LOC_0_m5)};
+      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
+      flipped_codon &= del_marker;
+      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
+      return;
+    }
+    case 2: {
+      unsigned int del_marker{static_cast<unsigned int>(DEL_LEFT_SIDE)};
+      unsigned int marker{static_cast<unsigned int>(LOC_1_m5)};
+      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
+      flipped_codon &= del_marker;
+      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
+      return;
+    }
+    case 1: {
+      unsigned int del_marker{static_cast<unsigned int>(codon::base::T)};
+      unsigned int marker{static_cast<unsigned int>(LOC_2_m5)};
+      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
+      flipped_codon &= del_marker;
+      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
+      return;
+    }
+    default: {
+      return;
+    }
+  }
+}
