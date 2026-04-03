@@ -296,54 +296,31 @@ void codon::Codon::insert_left(codon::base base) {
   unsigned int codon_uint{this->bases};
   unsigned int base_uint{static_cast<unsigned int>(base)};
 
-  std::stringstream ss;
-  ss << this->get_bases_str() << ".insert_left(" << codon::base_to_str(base)
-     << ") called ...";
-
   if (this->get_bases_len() == 0) {
     unsigned int marker_loc2{
         static_cast<unsigned int>(codon::marker::n_strand_1bp)};
-    ss << "\nmarker_loc2 = " << std::bitset<8>(marker_loc2);
     codon_uint = (marker_loc2 | base_uint);
-    ss << "\ncodon_uint = " << std::bitset<8>(codon_uint);
     this->bases = static_cast<std::uint8_t>(codon_uint);
-    ss << "\nChanged bases to = " << this->get_bases_bin() << " | "
-       << this->get_bases_str();
   } else if (this->get_bases_len() == 1) {
     // remove marker
     unsigned int marker_loc1{
         static_cast<unsigned int>(codon::marker::n_strand_2bp)};
     unsigned int mask_loc2{static_cast<unsigned int>(codon::mask::base_2)};
-    ss << "\nmarker_loc1 = " << std::bitset<8>(marker_loc1);
-    ss << "\nmask_loc2 = " << std::bitset<8>(mask_loc2);
 
     codon_uint &= ~mask_loc2;
-    ss << "\ncodon_uint = " << std::bitset<8>(codon_uint);
     base_uint <<= 2;
-    ss << "\nbase_uint shifted = " << std::bitset<8>(base_uint);
     codon_uint |= (base_uint | marker_loc1);
-    ss << "\ncodon_uint combined = " << std::bitset<8>(codon_uint);
     this->bases = static_cast<std::uint8_t>(codon_uint);
-    ss << "\nChanged bases to = " << this->get_bases_bin() << " | "
-       << this->get_bases_str();
   } else if (this->get_bases_len() == 2) {
     unsigned int marker_loc0{
         static_cast<unsigned int>(codon::marker::n_strand_3bp)};
     unsigned int mask_loc1{static_cast<unsigned int>(codon::mask::base_3)};
-    ss << "\nmarker_loc0 = " << std::bitset<8>(marker_loc0);
-    ss << "\nmask_loc1 = " << std::bitset<8>(mask_loc1);
 
-    codon_uint &= ~mask_loc1;  // remove marker
-    ss << "\ncodon_uint = " << std::bitset<8>(codon_uint);
-    base_uint <<= 4;  // shift base into position
-    ss << "\nbase_uint shifted = " << std::bitset<8>(base_uint);
+    codon_uint &= ~mask_loc1;                 // remove marker
+    base_uint <<= 4;                          // shift base into position
     codon_uint |= (base_uint | marker_loc0);  // combine
-    ss << "\ncodon_uint combined = " << std::bitset<8>(codon_uint);
     this->bases = static_cast<std::uint8_t>(codon_uint);
-    ss << "\nChanged bases to = " << this->get_bases_bin() << " | "
-       << this->get_bases_str();
   }
-  PLOGD << ss.str();
 }
 
 codon::base codon::Codon::squeeze_right(codon::base new_base) {
@@ -380,34 +357,25 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
 codon::base codon::Codon::pop(int loc) {
   /* removes the base to the furthest right by default
    */
-  std::stringstream ss;
   int original_len{this->get_bases_len()};
   if (loc == 0 || loc > original_len) loc = original_len;
-  ss << "Debug codon.pop(" << loc << ") for codon " << this->get_bases_bin();
 
   int offset = (original_len - loc) * 2;
-  ss << "\nOffset: " << offset;
   // early / faster exit
   if (offset == 0) {
     codon::base popped_base =
         static_cast<codon::base>(this->bases & codon::base::T);
-    ss << "\nOffset == 0; Popped: " << std::bitset<8>(popped_base);
     if (original_len == 1) {
       this->bases = codon::marker::n_strand_VOID;
     } else {
       this->bases >>= 2;
     }
-    ss << "\nResult codon: " << this->get_bases_bin() << " | "
-       << this->get_bases_str();
-    PLOGD << ss.str();
     return popped_base;
   }
 
   std::uint8_t mask_pop = static_cast<std::uint8_t>(T << offset);
-  ss << "\nMask pop: " << std::bitset<8>(mask_pop);
   codon::base popped_base =
       static_cast<codon::base>((this->bases & mask_pop) >> offset);
-  ss << "\nPopped final: " << std::bitset<8>(popped_base);
 
   unsigned int mask_save = codon::base::A;
   while (offset) {
@@ -416,25 +384,16 @@ codon::base codon::Codon::pop(int loc) {
     mask_save |= static_cast<unsigned int>(codon::base::T);
     offset -= 2;
   }
-  ss << "\nMask save: " << std::bitset<8>(mask_save);
 
   unsigned int mask_kill = ~mask_save;
-  ss << "\nMask kill: " << std::bitset<8>(mask_kill);
   unsigned int temporary_codon{this->bases};
   mask_save &=
       temporary_codon;  // all the bases to the right of popped are stored
-  ss << "\nSaved right side: " << std::bitset<8>(mask_save);
-  ss << "\nTemporary_codon: " << std::bitset<8>(temporary_codon);
   temporary_codon >>= 2;
-  ss << "\nTemporary_codon shifted: " << std::bitset<8>(temporary_codon);
   // delete and restore:
   temporary_codon &= mask_kill;  // sets the right side to 0s
-  ss << "\nTemporary_codon killed: " << std::bitset<8>(temporary_codon);
   temporary_codon |= mask_save;  // restores previously saved bases
-  ss << "\nTemporary_codon restored: " << std::bitset<8>(temporary_codon);
   this->bases = static_cast<std::uint8_t>(temporary_codon);
-
-  PLOGD << ss.str();
 
   return popped_base;
 }
@@ -451,7 +410,6 @@ void codon::Codon::reverse_inplace() {
     return;
   }
 
-  PLOGD << "Reverse inplace called on codon " << std::bitset<8>(this->bases);
   // 2*len - 2 = 4 with len 3 and 2 with len 2 - used so that it is applicable
   // for both options
   unsigned int mask_left{static_cast<unsigned int>(0b11) << (2 * len - 2)};
@@ -466,9 +424,7 @@ void codon::Codon::reverse_inplace() {
   unsigned int reversed{static_cast<unsigned int>(this->bases) & mask_delete};
   reversed |= (left_switched | right_switched);
 
-  PLOGD << "Reversed: " << std::bitset<8>(reversed);
   this->bases = static_cast<std::uint8_t>(reversed);
-  PLOGD << "Result: " << std::bitset<8>(this->bases);
 }
 
 codon::Codon codon::Codon::flip() const {
