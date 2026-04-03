@@ -15,7 +15,7 @@
 
 constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
 
-int test::locator_test() {
+test::Result test::locator_test() {
   try {
     std::vector<codon::locator> vec_locator{check_locator_creation()};
     PLOGD << "Creation of locator passed";
@@ -41,7 +41,7 @@ int test::locator_test() {
     PLOGF << message;
     abort();
   }
-  return 0;
+  return test::Result::Pass;
 }
 
 std::vector<codon::locator> test::check_locator_creation() {

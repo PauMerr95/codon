@@ -8,6 +8,12 @@
 
 namespace codon {
 
+enum OutputFormat : std::int8_t {
+  as_DNA,
+  as_RNA,
+  as_PROT,
+};
+
 struct locator {
   int shift;
   std::size_t index;
@@ -47,6 +53,7 @@ struct locator {
 
   void verify_shift() const;
   std::size_t distance_to(const codon::locator& other) const;
+  std::string to_str() const;
 };
 
 class Seq {
@@ -89,6 +96,17 @@ class Seq {
     return *this;
   };
 
+  bool operator==(const codon::Seq& other) const {
+    std::size_t maxLen{this->seq.size()};
+    if (other.seq.size() != maxLen) return false;
+    for (std::size_t idx{0}; idx < maxLen; idx++) {
+      if (this->seq[idx] != other.seq[idx]) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   void insert_base(codon::base base, codon::locator locator);
   void insert_codon(codon::Codon codon, codon::locator locator);
   void insert_seq(codon::Seq other, codon::locator locator);
@@ -101,7 +119,8 @@ class Seq {
   codon::Codon pop_codon(codon::locator locator, int size_cut = 3);
   codon::Seq pop_seq(codon::locator locator, std::size_t size_cut_bp);
   codon::Seq pop_seq(codon::locator locator_start, codon::locator locator_end);
-  codon::Seq subseq(codon::locator locator_start, codon::locator locator_end);
+  codon::Seq subseq(codon::locator locator_start,
+                    codon::locator locator_end) const;
 
   void left_shift(std::size_t upto_loc = 0);
   void right_shift(std::size_t upto_loc = 0);
@@ -117,8 +136,10 @@ class Seq {
   codon::Seq flip() const;
   codon::Seq flip(codon::locator start, codon::locator end) const;
 
-  std::string get_seq_str() const;
-  std::string get_seq_strsep() const;
+  std::string get_seq_str(
+      codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
+  std::string get_seq_strsep(
+      codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
   std::string get_seq_encoded() const;
 
   std::vector<std::bitset<8>> get_seq_bin() const;

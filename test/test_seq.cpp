@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -22,7 +21,7 @@ constexpr bool C_NO_OVERFLOW{false};
 constexpr bool C_OVERFLOW{true};
 }  // namespace constants
 
-int test::seq_test() {
+test::Result test::seq_test() {
   /* Main testing function for seq, all required subtest are started
    * from here.
    */
@@ -82,14 +81,14 @@ int test::seq_test() {
   } catch (std::invalid_argument &exception) {
     PLOGF << "Invalid argument supplied: " << exception.what();
     std::cerr << "Invalid argument supplied: " << exception.what();
-    std::abort();
+    return test::Result::Fail;
   } catch (std::exception &exception) {
     PLOGF << "Exception caught during testing: " << exception.what();
     std::cerr << "Exception caught during testing: " << exception.what();
-    std::abort();
+    return test::Result::Fail;
   }
 
-  return 0;
+  return test::Result::Pass;
 }
 
 std::vector<codon::Seq> test::seq_build(

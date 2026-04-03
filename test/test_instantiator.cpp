@@ -1,8 +1,6 @@
 #include <plog/Log.h>
 
 #include <catch2/catch_test_macros.hpp>
-#include <iostream>
-#include <stdexcept>
 
 #include "testing.h"
 
@@ -10,26 +8,24 @@
 
 TEST_CASE("codon", "[codon]") {
   SECTION("testing codon.cpp") {
-    REQUIRE(test::codon_test() == 0);
-    PLOGD << "Passed codon test";
+    REQUIRE(test::codon_test() == test::Result::Pass);
   }
 }
 
 TEST_CASE("locator", "[seq]") {
   SECTION("testing seq.cpp - locator") {
-    REQUIRE(test::locator_test() == 0);
-    PLOGD << "Passed seq subtest locator";
+    REQUIRE(test::locator_test() == test::Result::Pass);
   }
 }
 
 TEST_CASE("seq", "[seq]") {
   SECTION("testing seq.cpp - Seq") {
-    try {
-      REQUIRE(test::seq_test() == 0);
-    } catch (std::runtime_error& e) {
-      std::cerr << "Aborted testing seq.cpp due to runtime error: " << e.what();
-      PLOGD << "Aborted testing seq.cpp due to runtime error: " << e.what();
-    }
-    PLOGD << "Passed seq main test";
+    REQUIRE(test::seq_test() == test::Result::Pass);
+  }
+}
+
+TEST_CASE("readwrite", "[IO]") {
+  SECTION("testing seq.cpp - Seq") {
+    REQUIRE(test::readwrite_test() == test::Result::Pass);
   }
 }

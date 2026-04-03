@@ -1,13 +1,16 @@
 #include "cl_arg.h"
 
 #include <plog/Log.h>
+#include <sys/stat.h>
 
 #include <chrono>
 #include <cstddef>
+#include <exception>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -17,16 +20,20 @@
 std::pair<codon::locator, codon::locator> parse_ranges(
     const std::string& ranges);
 
+inline const std::string COUT{"cout"};
+
 codon::cli::Args::Args(std::vector<Operation> operations, std::string path_in,
-                       std::string path_out,
+                       std::string path_out, std::string error_msg,
                        std::pair<codon::locator, codon::locator> range,
-                       bool load_range_only, bool need_help)
+                       bool excl_range, bool need_help,
+                       std::chrono::milliseconds duration_ms)
     : operations{operations},
       path_in{path_in},
       path_out{path_out},
       range{range},
-      load_range_only{load_range_only},
-      need_help{need_help} {};
+      excl_range{excl_range},
+      need_help{need_help},
+      duration_ms{duration_ms} {};
 
 codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
   PLOGD << "Running main variable with " << argc - 1
@@ -36,8 +43,9 @@ codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
   std::stringstream ss;
   std::string input{};
   std::string output{};
+  std::string error_msg{};
   bool need_help{false};
-  bool loadrange{false};
+  bool excl_range{false};
 
   for (int i = 1; i < argc; i++) {
     while (*argv[i] != '\0') {
@@ -49,8 +57,8 @@ codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
     if (!curr_argument.empty()) {
       if (curr_argument == "--reverse" || curr_argument == "-rev") {
         operations.push_back(Operation::Reverse);
-      } else if (curr_argument == "--complement" || curr_argument == "-cmp") {
-        operations.push_back(Operation::Complement);
+      } else if (curr_argument == "--flip" || curr_argument == "-f") {
+        operations.push_back(Operation::Flip);
       } else if (curr_argument == "--transcribe" || curr_argument == "-ts") {
         operations.push_back(Operation::Transcribe);
       } else if (curr_argument == "--translate" || curr_argument == "-tl") {
@@ -81,7 +89,7 @@ codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
           throw std::runtime_error(
               "Encountered --ranges as last argument with no specified ranges");
         }
-      } else if (curr_argument == "--loadrange" || curr_argument == "-lr") {
+      } else if (curr_argument == "--excl_range" || curr_argument == "-rx") {
         if (++i < argc) {
           ss.str("");
           while (*argv[i] != '\0') {
@@ -91,10 +99,10 @@ codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
           ss.str("");
         } else {
           throw std::runtime_error(
-              "Encountered --loadrange as last argument with no specified "
+              "Encountered --excl_range as last argument with no specified "
               "ranges");
         }
-        loadrange = true;
+        excl_range = true;
       } else if (curr_argument == "--help" || curr_argument == "-h") {
         need_help = true;
         break;
@@ -115,8 +123,8 @@ codon::cli::Args codon::cli::parse_args(int& argc, char* argv[]) {
     // Check next argument
     if (need_help) break;
   }
-  return codon::cli::Args(operations, input, output, range, loadrange,
-                          need_help);
+  return codon::cli::Args(operations, input, output, error_msg, range,
+                          excl_range, need_help);
 }
 
 void codon::cli::display_help() {
@@ -128,8 +136,10 @@ void codon::cli::display_help() {
       << "codon <file> <operations> <opt: output> <opt: ranges>\n\n"
 
       << "Available operations:\n"
+      << "Output specifier (can only use one):"
       << "--transcribe | -ts:\tOutput will be transcription = RNA complement.\n"
       << "--translate  | -tl:\tOutput will be tranlation = Protein sequence.\n"
+      << "Manipulate specifier (no limit):"
       << "--complement | -cmp:\tOutput will be complement of input.\n"
       << "--reverse    | -rev:\tOutput will be reversed.\n\n"
 
@@ -149,6 +159,16 @@ void codon::cli::display_help() {
       << "--loadrange | -lr <start, stop>:\n"
       << "\tWill only load the specified range and apply operations to "
          "everything loaded.\n\n"
+      << "Examples:\n"
+      << "codon .\\test\\input_testing\\nonsense.fasta --reverse --flip --out "
+         ".\\test\\output_testing\\encoded_nonsense.codon\n"
+      << "=> Will load 'nonsense' reverse and flip it, then output it as an "
+         ".codon file\n\n"
+      << "Examples:\ncodon \".\\test\\input_testing\\Vulpes vulpes ACE2.fna\" "
+         "--flip --reverse --transcribe --out "
+         ".\\test\\output_testing\\uber_rna.fna\n"
+      << "=> Will load glorious vulpes vulpes ACE sequence flip and reverse it "
+         "to get the 5'orientation, then output as RNA to an.fna file\n\n"
       << "==============================================================\n";
 }
 
@@ -220,19 +240,19 @@ void codon::cli::log_caller(const codon::cli::Args& arg) {
     for (const Operation& op : arg.operations) {
       switch (op) {
         case Operation::Reverse:
-          std::cout << "           \tReverse\n";
+          std::cout << " Reverse\n";
           break;
-        case Operation::Complement:
-          std::cout << "           Complement\n";
+        case Operation::Flip:
+          std::cout << " Flip\n";
           break;
         case Operation::Transcribe:
-          std::cout << "           Transcribe\n";
+          std::cout << " Transcribe\n";
           break;
         case Operation::Translate:
-          std::cout << "           Translate\n";
+          std::cout << " Translate\n";
           break;
         default:
-          std::cout << "           \tUnknown Operation generated ....";
+          std::cout << " !!! Unknow Operation could not be converted ....";
           break;
       }
     }
@@ -250,58 +270,138 @@ void codon::cli::log_caller(const codon::cli::Args& arg) {
   }
 }
 
-void codon::cli::loader(std::promise<codon::Seq>&& promised_seq,
-                        const Args& caller, bool& s_is_work_thread_done) {
+void codon::cli::loader(std::promise<codon::Seq>&& promised_seq, Args& caller,
+                        Task& s_task_status) {
   auto start = std::chrono::high_resolution_clock::now();
-  codon::Fasta loaded_DNA_fna(std::move(codon::load(caller.path_in)));
-  promised_seq.set_value(loaded_DNA_fna.sequence);
+  try {
+    codon::Fasta loaded_DNA_fna(std::move(codon::load(caller.path_in)));
+    promised_seq.set_value(loaded_DNA_fna.sequence);
+  } catch (std::exception& e) {
+    s_task_status = codon::cli::Task::error;
+    caller.error_msg = e.what();
+    std::this_thread::sleep_for(std::chrono::milliseconds(51));
+    return;
+  }
   auto end = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-  std::cout << "Duration: " << duration.count() << " sec\n";
-  s_is_work_thread_done = true;
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  caller.duration_ms = duration;
+  s_task_status = codon::cli::Task::completed;
 }
 
-void codon::cli::runner(std::promise<codon::Seq>&& promised_seq,
-                        const Args& caller, bool& s_is_work_thread_done,
-                        codon::Seq sequence) {
+void codon::cli::runner(codon::Seq& sequence, Args& caller,
+                        Task& s_task_status) {
+  // TODO: Implement try catch for errors to stop loading bar.
+  PLOGD << "Started codon::cli::runner ..." << caller.range.first.to_str()
+        << " to " << caller.range.second.to_str();
+  auto start = std::chrono::high_resolution_clock::now();
   codon::locator begin{caller.range.first};
   codon::locator final;
-  if (caller.range.second == codon::locator(0, 1)) {
-    codon::locator final{sequence.get_last_loc()};
+  if (caller.range.first == caller.range.second) {
+    PLOGD << "ranges are the same";
+    final = sequence.get_last_loc();
   } else {
-    codon::locator final{caller.range.second};
+    PLOGD << "ranges are different";
+    final = caller.range.second;
   }
-  if (caller.load_range_only)
+
+  PLOGD << "Runner: Corrected range from " << begin.to_str() << " to "
+        << final.to_str();
+
+  if (caller.excl_range) {
     sequence = std::move(sequence.subseq(begin, final));
+    PLOGD << "Extracted subsequence and overwrote loaded one";
+  }
 
   for (const Operation& operation : caller.operations) {
     switch (operation) {
-      case Operation::Reverse:     // TODO: Implement in sequence.cpp
-      case Operation::Complement:  // TODO: Implement in sequence.cpp
+      case Operation::Reverse: {
+        sequence.reverse_inplace(begin, final);
+        PLOGD << "Reversed sequence from " << begin.to_str() << " to "
+              << final.to_str();
+        break;
+      }
+      case Operation::Flip: {
+        sequence.flip_inplace(begin, final);
+        PLOGD << "Flipped sequence." << begin.to_str() << " to "
+              << final.to_str();
+        break;
+      }
       default:
         break;
     }
   }
-  promised_seq.set_value(sequence);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  caller.duration_ms = duration;
+  s_task_status = codon::cli::Task::completed;
 }
 
-void codon::cli::writer(const codon::Seq& sequence,
-                        const codon::cli::Args& caller, bool& s_is_work_done) {
+void codon::cli::writer(const codon::Seq& sequence, codon::cli::Args& caller,
+                        Task& s_task_status) {
+  // TODO: Implement try catch for errors to stop loading bar.
+  PLOGD << "Started codon::cli::runner ..."
+        << "\nCaller path out: "
+        << ((caller.path_out.empty()) ? "no path out defined"
+                                      : caller.path_out);
+  std::stringstream ss;
+  codon::OutputFormat output_format{codon::OutputFormat::as_DNA};
+  if (!caller.operations.empty()) {
+    ss << ";Generated with codon cli - Operations ";
+    for (const Operation& operation : caller.operations) {
+      ss << " | ";
+      switch (operation) {
+        case Operation::Reverse:
+          ss << "Reverse";
+          break;
+        case Operation::Flip:
+          ss << "Flip";
+          break;
+        case Operation::Transcribe: {
+          ss << "Transcribe";
+          output_format = codon::OutputFormat::as_RNA;
+          break;
+        }
+        case Operation::Translate: {
+          ss << "Translate";
+          output_format = codon::OutputFormat::as_PROT;
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
   auto start = std::chrono::high_resolution_clock::now();
-  codon::Fasta output(sequence, "Unspecified");
+  codon::Fasta output(sequence, ">Unspecified -  writing to cout");
+  const std::string& path{caller.path_out};
 
   // determine output file
-  if (caller.path_out.empty()) {
-    output.write_FASTA();
-  }
-  if (caller.path_out.rfind(".codon") != std::string::npos) {
-    output.write_CODON(caller.path_out);
+  if (path.empty()) {
+    PLOGD << "No output path defined ... writing to cout";
+    s_task_status = codon::cli::Task::completed;
+    output.write_FASTA(COUT, output_format);
   } else {
-    output.write_FASTA(caller.path_out);
+    output.name = '>';
+    output.name.append(path.substr(path.find_last_of("/\\") + 1));
+    output.comments = ss.str();
+    PLOGD << "Writing to specified output => " << path
+          << "\nName = " << output.name << "\nComments = " << output.comments;
+    if (caller.path_out.rfind(".codon") != std::string::npos) {
+      if (output_format != as_DNA) {
+        throw std::invalid_argument(
+            ".codon output used with translate or transcribe");
+      }
+      output.write_CODON(caller.path_out);
+    } else {
+      output.write_FASTA(caller.path_out, output_format);
+    }
+    s_task_status = codon::cli::Task::completed;
   }
   auto end = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-  std::cout << "Duration: " << duration.count() << " sec\n";
-  s_is_work_done = true;
-  return;
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  caller.duration_ms = duration;
 }

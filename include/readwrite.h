@@ -1,5 +1,5 @@
-#include <string_view>
-#include <utility>
+#pragma once
+#include <filesystem>
 #include <vector>
 
 #include "seq.h"
@@ -15,16 +15,19 @@ struct Fasta {
   Fasta(codon::Fasta&) = default;
   Fasta(codon::Fasta&&) noexcept = default;
 
-  void write_FASTA(const std::string& path_in = "cout");
-  void write_FASTA(std::pair<codon::locator, codon::locator> segment,
-                   std::string_view path_out = "cout");
+  void write_FASTA(const std::string& path_out = "cout",
+                   OutputFormat OutputFormat = as_DNA) const;
+  void write_FASTA(const std::filesystem::path& path_out,
+                   OutputFormat OutputFormat = as_DNA) const;
 
-  void write_CODON(const std::string& path_in = "cout");
-  void write_CODON(std::pair<codon::locator, codon::locator> segment,
-                   std::string_view path_out = "cout");
+  void write_CODON(const std::string& path_out = "cout") const;
+  void write_CODON(const std::filesystem::path& path_out) const;
 };
 
-std::vector<codon::Fasta> load_multiple(const std::string& path_in);
 codon::Fasta load(const std::string& path_in);
+std::vector<codon::Fasta> load_multiple(const std::string& path_in);
+
+codon::Fasta load(const std::filesystem::path& path_in);
+std::vector<codon::Fasta> load_multiple(const std::filesystem::path& path_in);
 
 }  // namespace codon

@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "codon.h"
+#include "transmute.h"
 
 // INFO: CONSTEXPR AND MACROS
 
@@ -26,13 +27,11 @@ codon::Seq::Seq(std::string_view input, std::string_view format) {
 
   if (format == "AGCT") {
     int remainder_size = input.length() % 3;
-    bool all_codons_full = (remainder_size == 0);
+    bool all_codons_full{remainder_size == 0};
 
     this->seq.reserve(static_cast<std::size_t>(
         (all_codons_full) ? static_cast<int>(input.length() / 3) * 1.2
                           : (static_cast<int>(input.length() / 3) + 1) * 1.2));
-
-    PLOGD << "Generating Seq:\n" << input;
 
     for (int i = 0; i < input.length() / 3; i++) {
       this->seq.emplace_back(codon::Codon(input.substr(i * 3, 3)));
@@ -43,25 +42,23 @@ codon::Seq::Seq(std::string_view input, std::string_view format) {
           codon::Codon(input.substr(input.length() - remainder_size)));
     }
     PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
-
-  } else if (format == "encoded") {
+    return;
+  }
+  if (format == "encoded") {
     this->seq.reserve(input.size());
-
-    PLOGD << "Generating Seq:\n" << input;
 
     for (const char& enc_char : input) {
       this->seq.emplace_back(codon::Codon(enc_char));
     }
 
     PLOGD << "Generated Sequence:\n" << this->get_seq_strsep();
-
-  } else {
-    std::string message(
-        "Expected 'AGCT' or 'encoded' as param 'format' for constructor. "
-        "Received: ");
-    message.append(format);
-    throw std::invalid_argument(message);
+    return;
   }
+  std::string message(
+      "Expected 'AGCT' or 'encoded' as param 'format' for constructor. "
+      "Received: ");
+  message.append(format);
+  throw std::invalid_argument(message);
 }
 
 codon::Seq::Seq(const std::size_t& size) { this->seq.reserve(size); }
@@ -81,27 +78,65 @@ codon::Seq::~Seq() {
         << "' going out of scope";
 }
 
-std::string codon::Seq::get_seq_str() const {
+std::string codon::Seq::get_seq_str(codon::OutputFormat output_format) const {
   std::string annealed_str;
   annealed_str.reserve(this->seq.size() * 4);
 
-  for (codon::Codon curr_codon : this->seq) {
-    annealed_str.append(curr_codon.get_bases_str());
+  switch (output_format) {
+    case codon::OutputFormat::as_DNA: {
+      for (codon::Codon curr_codon : this->seq) {
+        annealed_str.append(curr_codon.get_bases_str());
+      }
+      break;
+    }
+    case codon::OutputFormat::as_RNA: {
+      for (codon::Codon curr_codon : this->seq) {
+        annealed_str.append(codon::transcribe[curr_codon]);
+      }
+      break;
+    }
+    case codon::OutputFormat::as_PROT: {
+      for (codon::Codon curr_codon : this->seq) {
+        annealed_str.push_back(codon::translate[curr_codon]);
+      }
+      break;
+    }
   }
   annealed_str.shrink_to_fit();
   return annealed_str;
 };
 
-std::string codon::Seq::get_seq_strsep() const {
+std::string codon::Seq::get_seq_strsep(
+    codon::OutputFormat output_format) const {
   if (this->seq.empty()) {
     PLOGD << "get_seq_strsep called on empty sequence";
     return "";
   }
 
   std::stringstream ss;
-  std::for_each(
-      this->seq.begin(), this->seq.end(),
-      [&](const codon::Codon& codon) { ss << codon.get_bases_str() << " "; });
+  switch (output_format) {
+    case codon::OutputFormat::as_DNA: {
+      std::for_each(this->seq.begin(), this->seq.end(),
+                    [&](const codon::Codon& codon) {
+                      ss << codon.get_bases_str() << " ";
+                    });
+      break;
+    }
+    case codon::OutputFormat::as_RNA: {
+      std::for_each(this->seq.begin(), this->seq.end(),
+                    [&](const codon::Codon& codon) {
+                      ss << codon::transcribe[codon] << " ";
+                    });
+      break;
+    }
+    case codon::OutputFormat::as_PROT: {
+      std::for_each(this->seq.begin(), this->seq.end(),
+                    [&](const codon::Codon& codon) {
+                      ss << codon::translate[codon] << " ";
+                    });
+      break;
+    }
+  }
   return ss.str();
 }
 
@@ -575,10 +610,6 @@ void codon::Seq::push_back(codon::Codon codon) {
 }
 
 void codon::Seq::push_back(codon::Seq sequence) {
-  PLOGD << "push_back(codon::Seq) called ...\n"
-        << "this : " << this->get_seq_strsep() << "\n"
-        << "other: " << sequence.get_seq_strsep();
-
   hm_handleMemoryAndError(sequence);
 
   if (this->seq.empty()) {
@@ -897,7 +928,7 @@ codon::Seq codon::Seq::pop_seq(codon::locator locator_start,
 }
 
 codon::Seq codon::Seq::subseq(codon::locator locator_start,
-                              codon::locator locator_end) {
+                              codon::locator locator_end) const {
   /* returns a copy of the subsequence specified, respecting the alignment.
    */
   locator_start.verify_shift();
@@ -913,7 +944,6 @@ codon::Seq codon::Seq::subseq(codon::locator locator_start,
         "Provided invalid locator for Codon::Seq::subseq()");
   }
 
-  PLOGD << "Retrieving subseq from sequence:\n" << this->get_seq_strsep();
   codon::Seq subseq(this->seq.at(locator_start.index));
   PLOGD << "First codon:\n" << subseq.get_seq_strsep();
   int amount_expelled_front{locator_start.shift - 1};
@@ -1100,6 +1130,12 @@ std::size_t codon::locator::distance_to(const codon::locator& other) const {
         << "} and {" << other.index << ", " << other.shift
         << "} = " << distance;
   return distance;
+}
+
+std::string codon::locator::to_str() const {
+  std::stringstream ss;
+  ss << "(" << this->index << ", " << this->shift << ")";
+  return ss.str();
 }
 
 // INFO: HELPER FUNCTIONS

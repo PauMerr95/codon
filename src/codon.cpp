@@ -10,33 +10,7 @@
 #include <string>
 #include <string_view>
 
-constexpr std::uint8_t LOC_0_m5 = static_cast<uint8_t>(0b01000000);
-constexpr std::uint8_t LOC_0_m3 = static_cast<uint8_t>(0b10000000);
-constexpr std::uint8_t LOC_0 = static_cast<uint8_t>(0b11000000);
-
-constexpr std::uint8_t LOC_1_m5 = static_cast<uint8_t>(0b00010000);
-constexpr std::uint8_t LOC_1_m3 = static_cast<uint8_t>(0b00100000);
-constexpr std::uint8_t LOC_1 = static_cast<uint8_t>(0b00110000);
-
-constexpr std::uint8_t LOC_2_m5 = static_cast<uint8_t>(0b00000100);
-constexpr std::uint8_t LOC_2_m3 = static_cast<uint8_t>(0b00001000);
-constexpr std::uint8_t LOC_2 = static_cast<uint8_t>(0b00001100);
-constexpr std::uint8_t LOC_3 = codon::base::T;
-
-/* For extraction purposes:
- * LOC_1 == base 1 in triplet
- * LOC_2 == base 2 in triplet
- * enum base T == base 3 in triplet
- *
- * base 1 is left most in the bit representation
- */
-
-constexpr std::uint8_t DEL_LEFT_SIDE = static_cast<uint8_t>(0b00001111);
-
-constexpr std::uint8_t VOID_5 = static_cast<uint8_t>(0b00000000);
-constexpr std::uint8_t SWITCH_5 = static_cast<uint8_t>(0b11111111);
-
-char codon::base_to_str(codon::base base) {
+char codon::base_to_str(const codon::base& base) {
   switch (base) {
     case codon::base::A:
       return 'A';
@@ -50,38 +24,60 @@ char codon::base_to_str(codon::base base) {
 }
 
 codon::Codon::Codon(std::string_view bases_str) {
-  /* This function builds the bases from string using a 16bit generator.
-   * This is probably not necessary but it was one of the things I added during
-   * debugging and it's only a temporary object.
-   */
   if (bases_str == "VOID") {
-    this->bases = VOID_5;
-  } else if (bases_str == "SWITCH") {
-    this->bases = SWITCH_5;
-  } else {
-    std::uint16_t generator{0};
-    generator |= G;
-    for (int i = 0; i < bases_str.length(); i++) {
-      switch (bases_str[i]) {
-        case 'A':
-          generator = generator << 2 | A;
-          break;
-        case 'G':
-          generator = generator << 2 | G;
-          break;
-        case 'C':
-          generator = generator << 2 | C;
-          break;
-        case 'T':
-          generator = generator << 2 | T;
-          break;
+    this->bases = codon::marker::n_strand_VOID;
+    return;
+  }
+  if (bases_str == "SWITCH") {
+    this->bases = codon::marker::c_strand_VOID;
+    return;
+  }
+  if (bases_str.length() > 3) {
+    std::stringstream error_msg;
+    error_msg << "Encountered invalid char length during codon creation: '"
+              << bases_str << "'";
+    throw std::invalid_argument(error_msg.str());
+  }
+  unsigned int generator{0};
+  generator |= static_cast<unsigned int>(codon::base::G);
+  for (int i = 0; i < bases_str.length(); i++) {
+    switch (bases_str[i]) {
+      case 'A':
+        generator =
+            (generator << 2) | static_cast<unsigned int>(codon::base::A);
+        break;
+      case 'G':
+        generator =
+            (generator << 2) | static_cast<unsigned int>(codon::base::G);
+        break;
+      case 'C':
+        generator =
+            (generator << 2) | static_cast<unsigned int>(codon::base::C);
+        break;
+      case 'T':
+        generator =
+            (generator << 2) | static_cast<unsigned int>(codon::base::T);
+        break;
+      case 'U':
+        generator =
+            (generator << 2) | static_cast<unsigned int>(codon::base::T);
+        break;
+      default: {
+        std::stringstream error_msg;
+        error_msg << "Encountered invalid char during codon creation: '"
+                  << bases_str[i]
+                  << "' (Hint: This function call cannot handle wildcards)";
+        throw std::invalid_argument(error_msg.str());
       }
     }
-    this->bases = static_cast<uint8_t>(generator);
   }
+  this->bases = static_cast<uint8_t>(generator);
 };
 
-codon::Codon::Codon(base base) { this->bases = LOC_2_m5 | base; }
+codon::Codon::Codon(const base& base) {
+  this->bases = static_cast<std::uint8_t>(codon::marker::n_strand_1bp |
+                                          static_cast<unsigned int>(base));
+}
 
 codon::Codon::Codon(char enc_char) {
   if ((enc_char < 32) || (enc_char > 115)) {
@@ -113,25 +109,26 @@ bool codon::Codon::is_full() const { return (this->get_bases_len() == 3); }
 bool codon::Codon::is_empty() const { return (this->get_bases_len() == 0); }
 
 bool codon::Codon::is_complement() const {
-  if (this->bases == VOID_5) return false;
-  if (this->bases == SWITCH_5) return true;
+  if (this->bases == codon::marker::n_strand_VOID) return false;
+  if (this->bases == codon::marker::c_strand_VOID) return true;
 
-  int marker_3 = static_cast<std::uint8_t>(this->bases & LOC_0);
-  int marker_1 = static_cast<std::uint8_t>(this->bases & LOC_2);
   switch (this->get_bases_len()) {
     case 3: {
-      int marker_3 = static_cast<std::uint8_t>(this->bases & LOC_0);
-      if (marker_3 == LOC_0_m3) return true;
+      unsigned int marker_3bp{static_cast<unsigned int>(this->bases) &
+                              codon::mask::mark_3};
+      if (marker_3bp == codon::marker::c_strand_3bp) return true;
       break;
     }
     case 2: {
-      int marker_2 = static_cast<std::uint8_t>(this->bases & LOC_1);
-      if (marker_2 == LOC_1_m3) return true;
+      unsigned int marker_2bp{
+          static_cast<unsigned int>(this->bases & codon::mask::l_half)};
+      if (marker_2bp == codon::marker::c_strand_2bp) return true;
       break;
     }
     case 1: {
-      int marker_2 = static_cast<std::uint8_t>(this->bases & LOC_1);
-      if (marker_2 == LOC_1_m3) return true;
+      unsigned int marker_1bp =
+          static_cast<unsigned int>(this->bases & (~codon::mask::base_1));
+      if (marker_1bp == codon::marker::c_strand_1bp) return true;
       break;
     }
   }
@@ -150,17 +147,25 @@ std::bitset<8> codon::Codon::get_bases_bin() const {
  * For void and switch codons it returns 0;
  */
 int codon::Codon::get_bases_len() const {
-  if (this->bases == VOID_5 || this->bases == SWITCH_5) return 0;
+  unsigned int bases_uint{static_cast<unsigned int>(this->bases)};
 
-  int marker_3 = (this->bases & LOC_0);
-  int marker_2 = (this->bases & LOC_1);
+  if (bases_uint == codon::marker::n_strand_VOID ||
+      bases_uint == codon::marker::c_strand_VOID)
+    return 0;
 
-  if (marker_3 == LOC_0_m5 || marker_3 == LOC_0_m3)
+  unsigned int marker_3bp = bases_uint & codon::mask::mark_3;
+  if (marker_3bp == codon::marker::n_strand_3bp ||
+      marker_3bp == codon::marker::c_strand_3bp)
     return 3;
-  else if (marker_2 == LOC_1_m5 || marker_2 == LOC_1_m3)
+
+  unsigned int marker_2bp =
+      bases_uint &
+      codon::mask::l_half;  // mark_2 does not account for flipped unused loc 0
+  if (marker_2bp == codon::marker::n_strand_2bp ||
+      marker_2bp == codon::marker::c_strand_2bp)
     return 2;
-  else
-    return 1;
+
+  return 1;
 }
 
 char codon::Codon::get_bases_encoded() const {
@@ -188,7 +193,8 @@ std::string codon::Codon::get_bases_str() const {
    */
   std::size_t len = this->get_bases_len();
 
-  if (this->is_empty()) return (this->bases == VOID_5) ? "VOID" : "SWITCH";
+  if (this->is_empty())
+    return (this->bases == codon::marker::n_strand_VOID) ? "VOID" : "SWITCH";
 
   std::string codon_str{};
   codon_str.resize(len);
@@ -227,20 +233,23 @@ codon::base codon::Codon::get_base_at(int shift = 1) const {
   switch (shift) {
     case 1: {
       if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & LOC_1) >> 4);
+        return static_cast<codon::base>((this->bases & codon::mask::base_3) >>
+                                        4);
       else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+        return static_cast<codon::base>((this->bases & codon::mask::base_2) >>
+                                        2);
       else if (this->get_bases_len() == 1)
-        return static_cast<codon::base>(this->bases & T);
+        return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
     case 2: {
       if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & LOC_2) >> 2);
+        return static_cast<codon::base>((this->bases & codon::mask::base_2) >>
+                                        2);
       else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>(this->bases & T);
+        return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
     case 3: {
-      return static_cast<codon::base>(this->bases & T);
+      return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
     default: {
       std::string message =
@@ -253,10 +262,10 @@ codon::base codon::Codon::get_base_at(int shift = 1) const {
 
 void codon::Codon::cast_to_switch() {
   // Toggles the codong between a VOID (0x00) and a SWITCH (0xFF)
-  if (this->bases == VOID_5)
-    this->bases = SWITCH_5;
-  else if (this->bases == SWITCH_5)
-    this->bases = VOID_5;
+  if (this->bases == codon::marker::n_strand_VOID)
+    this->bases = codon::marker::c_strand_VOID;
+  else if (this->bases == codon::marker::c_strand_VOID)
+    this->bases = codon::marker::n_strand_VOID;
   else
     PLOGF << "Fatal Error: Trying to cast encoding codon to switch";
 }
@@ -269,7 +278,8 @@ void codon::Codon::insert_right(codon::base base) {
   unsigned int base_uint{static_cast<unsigned int>(base)};
 
   if (this->is_empty()) {
-    unsigned int marker_loc2{static_cast<unsigned int>(LOC_2_m5)};
+    unsigned int marker_loc2{
+        static_cast<unsigned int>(codon::marker::n_strand_1bp)};
     this->bases = static_cast<std::uint8_t>(marker_loc2 | base_uint);
   } else {
     unsigned int codon_uint{this->bases};
@@ -291,7 +301,8 @@ void codon::Codon::insert_left(codon::base base) {
      << ") called ...";
 
   if (this->get_bases_len() == 0) {
-    unsigned int marker_loc2{static_cast<unsigned int>(LOC_2_m5)};
+    unsigned int marker_loc2{
+        static_cast<unsigned int>(codon::marker::n_strand_1bp)};
     ss << "\nmarker_loc2 = " << std::bitset<8>(marker_loc2);
     codon_uint = (marker_loc2 | base_uint);
     ss << "\ncodon_uint = " << std::bitset<8>(codon_uint);
@@ -300,8 +311,9 @@ void codon::Codon::insert_left(codon::base base) {
        << this->get_bases_str();
   } else if (this->get_bases_len() == 1) {
     // remove marker
-    unsigned int marker_loc1{static_cast<unsigned int>(LOC_1_m5)};
-    unsigned int mask_loc2{static_cast<unsigned int>(LOC_2)};
+    unsigned int marker_loc1{
+        static_cast<unsigned int>(codon::marker::n_strand_2bp)};
+    unsigned int mask_loc2{static_cast<unsigned int>(codon::mask::base_2)};
     ss << "\nmarker_loc1 = " << std::bitset<8>(marker_loc1);
     ss << "\nmask_loc2 = " << std::bitset<8>(mask_loc2);
 
@@ -315,8 +327,9 @@ void codon::Codon::insert_left(codon::base base) {
     ss << "\nChanged bases to = " << this->get_bases_bin() << " | "
        << this->get_bases_str();
   } else if (this->get_bases_len() == 2) {
-    unsigned int marker_loc0{static_cast<unsigned int>(LOC_0_m5)};
-    unsigned int mask_loc1{static_cast<unsigned int>(LOC_1)};
+    unsigned int marker_loc0{
+        static_cast<unsigned int>(codon::marker::n_strand_3bp)};
+    unsigned int mask_loc1{static_cast<unsigned int>(codon::mask::base_3)};
     ss << "\nmarker_loc0 = " << std::bitset<8>(marker_loc0);
     ss << "\nmask_loc1 = " << std::bitset<8>(mask_loc1);
 
@@ -339,13 +352,13 @@ codon::base codon::Codon::squeeze_right(codon::base new_base) {
    * the fn if your len < 3 already use insert_left()
    */
   enum codon::base dropped_base =
-      static_cast<enum codon::base>((LOC_1 & this->bases) >> 4);
-  // LOC_1 == BASE 1 for triplet, shifted by 4times so it can be converted to
-  // base
+      static_cast<enum codon::base>((codon::mask::base_3 & this->bases) >> 4);
+  // codon::mask::base_3 == BASE 1 for triplet, shifted by 4times so it can be
+  // converted to base
   this->bases <<= 2;
   this->bases |= new_base;
-  this->bases &= ~(LOC_0);
-  this->bases |= LOC_0_m5;
+  this->bases &= ~(codon::mask::mark_3);
+  this->bases |= codon::marker::n_strand_3bp;
 
   return dropped_base;
 }
@@ -358,8 +371,9 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
   enum codon::base dropped_base =
       static_cast<codon::base>((this->bases & codon::base::T));
   this->bases >>= 2;
-  this->bases &= DEL_LEFT_SIDE;
-  this->bases |= static_cast<uint8_t>(new_base << 4) | LOC_0_m5;
+  this->bases &= codon::mask::r_half;
+  this->bases |=
+      static_cast<uint8_t>(new_base << 4) | codon::marker::n_strand_3bp;
   return dropped_base;
 }
 
@@ -379,7 +393,7 @@ codon::base codon::Codon::pop(int loc) {
         static_cast<codon::base>(this->bases & codon::base::T);
     ss << "\nOffset == 0; Popped: " << std::bitset<8>(popped_base);
     if (original_len == 1) {
-      this->bases = VOID_5;
+      this->bases = codon::marker::n_strand_VOID;
     } else {
       this->bases >>= 2;
     }
@@ -466,16 +480,18 @@ codon::Codon codon::Codon::flip() const {
 void codon::Codon::flip_inplace() {
   switch (this->get_bases_len()) {
     case 3: {
-      unsigned int del_marker{~static_cast<unsigned int>(LOC_0)};
-      unsigned int marker{static_cast<unsigned int>(LOC_0_m5)};
+      unsigned int del_marker{~static_cast<unsigned int>(codon::mask::mark_3)};
+      unsigned int marker{
+          static_cast<unsigned int>(codon::marker::n_strand_3bp)};
       unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
       flipped_codon &= del_marker;
       this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
       return;
     }
     case 2: {
-      unsigned int del_marker{static_cast<unsigned int>(DEL_LEFT_SIDE)};
-      unsigned int marker{static_cast<unsigned int>(LOC_1_m5)};
+      unsigned int del_marker{static_cast<unsigned int>(codon::mask::r_half)};
+      unsigned int marker{
+          static_cast<unsigned int>(codon::marker::n_strand_2bp)};
       unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
       flipped_codon &= del_marker;
       this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
@@ -483,7 +499,8 @@ void codon::Codon::flip_inplace() {
     }
     case 1: {
       unsigned int del_marker{static_cast<unsigned int>(codon::base::T)};
-      unsigned int marker{static_cast<unsigned int>(LOC_2_m5)};
+      unsigned int marker{
+          static_cast<unsigned int>(codon::marker::n_strand_1bp)};
       unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
       flipped_codon &= del_marker;
       this->bases = static_cast<std::uint8_t>(flipped_codon | marker);

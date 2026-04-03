@@ -9,12 +9,13 @@
 #include "random.h"
 #include "testing.h"
 
-int test::codon_test() {
+test::Result test::codon_test() {
   std::vector<std::string> arr_bases_str = {
       "TCA", "GGG", "AGC", "GTA", "CAT", "TTT",    "ACT", "AAA", "VOID", "GG",
       "AA",  "TC",  "CA",  "T",   "A",   "GGA",    "ACG", "C",   "CC",   "AC",
       "CT",  "GAC", "CGA", "CAG", "CAA", "SWITCH", "ACC", "TAA", "TTA"};
-  codon::base arr_bases[4] = {codon::A, codon::G, codon::C, codon::T};
+  codon::base arr_bases[4] = {codon::base::A, codon::base::G, codon::base::C,
+                              codon::base::T};
 
   std::vector<codon::Codon> codons_generated(arr_bases_str.size(),
                                              codon::Codon("VOID"));
@@ -32,7 +33,7 @@ int test::codon_test() {
   test::check_flip(codons_generated);
   PLOGD << "Passed reversal check";
 
-  return 0;
+  return test::Result::Pass;
 }
 
 void test::check_creation_str(std::vector<std::string> arr_bases) {
@@ -129,7 +130,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
      */
     while (counter--) {
       codon::base first_base = temp_codon.get_base_at(1);
-      codon::base dropped = temp_codon.squeeze_right(codon::G);
+      codon::base dropped = temp_codon.squeeze_right(codon::base::G);
       REQUIRE(first_base == dropped);
 
       if (reverse_codon.get_bases_len() == 0)
@@ -144,7 +145,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
      * original order (Previously inserted As stay in the reverse_codon)
      */
     while (original_len--) {
-      codon::base dropped = reverse_codon.squeeze_left(codon::C);
+      codon::base dropped = reverse_codon.squeeze_left(codon::base::C);
 
       if (final_codon.get_bases_len() == 0)
         final_codon = codon::Codon(dropped);

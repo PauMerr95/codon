@@ -1,13 +1,17 @@
 #pragma once
+#include <filesystem>
 #include <string>
 #include <vector>
 
 #include "codon.h"
+#include "readwrite.h"
 #include "seq.h"
 
 namespace test {
 
-int codon_test();
+enum Result : bool { Pass, Fail };
+
+Result codon_test();
 void check_creation_str(std::vector<std::string> arr_bases);
 void check_creation_str(std::vector<std::string> arr_bases,
                         std::vector<codon::Codon> &generated);
@@ -16,14 +20,14 @@ void check_operations(std::vector<codon::Codon> arr_codons);
 void check_reversal(std::vector<codon::Codon> arr_codons);
 void check_flip(std::vector<codon::Codon> arr_codons);
 
-int locator_test();
+Result locator_test();
 std::vector<codon::locator> check_locator_creation();
 void check_locator_comparisons(const std::vector<codon::locator> &vec_locator);
 void check_locator_methods();
 void check_locator_arithmetics(const std::vector<codon::locator> &vec_locator);
 void check_locator_validation();
 
-int seq_test();
+Result seq_test();
 int get_random(int low, int high);
 std::vector<codon::Seq> seq_build(
     const std::vector<std::string> &arr_sequences);
@@ -56,5 +60,16 @@ void check_pushback_codons(std::vector<codon::Seq> &vec_seq,
 void check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
                          std::vector<codon::Seq> &inserts);
 
-int readwrite_test();
+Result readwrite_test();
+codon::Fasta check_load_single(const std::filesystem::path &path_in);
+std::vector<codon::Fasta> check_load_multi(
+    const std::filesystem::path &path_in);
+
+void compare_Fasta(const codon::Fasta &single_loaded,
+                   const codon::Fasta &multi_loaded);
+
+void check_write_fna(const codon::Fasta &out_fna);
+void check_write_cdn(const codon::Fasta &out_cdn);
+void check_written();
+
 }  // namespace test

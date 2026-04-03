@@ -66,6 +66,7 @@ target_link_libraries(codon
 target_compile_definitions(codon
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
 )
 
 
@@ -97,6 +98,7 @@ add_executable(testing
     test/test_codon.cpp
     test/test_seq.cpp
     test/test_locator.cpp
+    test/test_readwrite.cpp
     src/logging.cpp)
 
 target_link_libraries(testing
@@ -111,4 +113,5 @@ catch_discover_tests(testing)
 target_compile_definitions(testing
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_test_codon.csv"
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
 )
