@@ -12,6 +12,8 @@
 #include <string_view>
 #include <vector>
 
+#include "seq.h"
+
 // TODO: IMPROVE: Duplicate code in write_FASTA and write_CODON functions
 // TODO: IMPROVE: Duplicate code in load functions
 
@@ -35,6 +37,9 @@ void h_loadmulti_handle_line(std::vector<codon::Fasta>& output, int& idx_Fasta,
 codon::Signal h_load_handle_line(codon::Fasta& fasta, bool& extracted_name,
                                  std::istringstream& input, std::string& line,
                                  std::string_view file_format);
+
+void h_print_to_cout(const codon::Fasta& fasta,
+                     const codon::OutputFormat& output_format);
 
 codon::Fasta::Fasta(codon::Seq sequence, std::string name, std::string comments)
     : sequence{sequence}, name{name}, comments{comments} {}
@@ -269,37 +274,11 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
   }
 }
 
-void codon::Fasta::write_FASTA(const std::string& path_out,
-                               codon::OutputFormat output_format) const {
-  if (path_out == "cout") {
-    std::cout << this->name << "\n";
-    if (!this->comments.empty() && this->comments != "N/A") {
-      std::cout << this->comments << "\n";
-    }
-    std::cout << this->sequence.get_seq_str(output_format) << "\n";
+void codon::Fasta::write(const std::filesystem::path& path_out,
+                         codon::OutputFormat output_format) const {
+  if (path_out.string() == "cout") {
+    h_print_to_cout(*this, output_format);
   }
-  std::ofstream file(path_out);
-
-  if (!file.is_open()) {
-    std::string message{"Failed to open "};
-    message += path_out;
-    message +=
-        ". Close file if already open and verify if correct path was passed.";
-    throw std::runtime_error(message);
-  }
-  std::ostringstream oss;
-  oss << this->name << "\n";
-  if (!this->comments.empty() && this->comments != "N/A") {
-    oss << this->comments << "\n";
-  }
-
-  oss << this->sequence.get_seq_str(output_format) << "\n";
-  file << oss.str();
-  file.close();
-}
-
-void codon::Fasta::write_FASTA(const std::filesystem::path& path_out,
-                               codon::OutputFormat output_format) const {
   std::ofstream file(path_out);
 
   if (!file.is_open()) {
@@ -316,53 +295,6 @@ void codon::Fasta::write_FASTA(const std::filesystem::path& path_out,
   }
 
   oss << this->sequence.get_seq_str(output_format) << "\n";
-  file << oss.str();
-  file.close();
-}
-
-void codon::Fasta::write_CODON(const std::string& path_out) const {
-  if (path_out == "cout") {
-    std::cout << this->name << "\n";
-    if (!this->comments.empty() && this->comments != "N/A") {
-      std::cout << this->comments << "\n";
-    }
-    std::cout << this->sequence.get_seq_encoded() << "\n";
-  }
-  std::ofstream file(path_out);
-
-  if (!file.is_open()) {
-    std::string message{"Failed to open "};
-    message += path_out;
-    message +=
-        ". Close file if already open and verify if correct path was passed.";
-    throw std::runtime_error(message);
-  }
-  std::ostringstream oss;
-  oss << this->name << "\n";
-  if (!this->comments.empty() && this->comments != "N/A") {
-    oss << this->comments << "\n";
-  }
-  oss << this->sequence.get_seq_encoded() << "\n";
-  file << oss.str();
-  file.close();
-}
-
-void codon::Fasta::write_CODON(const std::filesystem::path& path_out) const {
-  std::ofstream file(path_out);
-
-  if (!file.is_open()) {
-    std::string message{"Failed to open "};
-    message += path_out.string();
-    message +=
-        ". Close file if already open and verify if correct path was passed.";
-    throw std::runtime_error(message);
-  }
-  std::ostringstream oss;
-  oss << this->name << "\n";
-  if (!this->comments.empty() && this->comments != "N/A") {
-    oss << this->comments << "\n";
-  }
-  oss << this->sequence.get_seq_encoded() << "\n";
   file << oss.str();
   file.close();
 }
@@ -407,4 +339,13 @@ codon::Signal h_load_handle_line(codon::Fasta& fasta, bool& extracted_name,
         codon::Seq(line, (file_format == ".codon") ? "encoded" : "AGCT"));
   }
   return codon::Signal::PASS;
+}
+
+void h_print_to_cout(const codon::Fasta& fasta,
+                     const codon::OutputFormat& output_format) {
+  std::cout << fasta.name << "\n";
+  if (!fasta.comments.empty() && fasta.comments != "N/A") {
+    std::cout << fasta.comments << "\n";
+  }
+  std::cout << fasta.sequence.get_seq_str(output_format);
 }

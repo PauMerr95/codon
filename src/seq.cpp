@@ -34,7 +34,8 @@ codon::Seq::Seq(std::string_view input, std::string_view format) {
                           : (static_cast<int>(input.length() / 3) + 1) * 1.2));
 
     for (int i = 0; i < input.length() / 3; i++) {
-      this->seq.emplace_back(codon::Codon(input.substr(i * 3, 3)));
+      std::string_view substring{input.substr(i * 3, 3)};
+      this->seq.emplace_back(codon::Codon(substring));
     }
 
     if (!all_codons_full) {
@@ -76,61 +77,196 @@ codon::Seq::~Seq() {
 }
 
 std::string codon::Seq::get_seq_str(codon::OutputFormat output_format) const {
-  std::string annealed_str;
-  annealed_str.reserve(this->seq.size() * 4);
+  return this->get_seq_str(
+      std::pair<codon::locator, codon::locator>{this->get_first_loc(),
+                                                this->get_last_loc()},
+      output_format);
+}
 
-  switch (output_format) {
-    case codon::OutputFormat::as_DNA: {
-      for (codon::Codon curr_codon : this->seq) {
-        annealed_str.append(curr_codon.get_bases_str());
-      }
-      break;
-    }
-    case codon::OutputFormat::as_RNA: {
-      for (codon::Codon curr_codon : this->seq) {
-        annealed_str.append(codon::transcribe[curr_codon]);
-      }
-      break;
-    }
-    case codon::OutputFormat::as_PROT: {
-      for (codon::Codon curr_codon : this->seq) {
-        annealed_str.push_back(codon::translate[curr_codon]);
-      }
-      break;
-    }
-  }
-  annealed_str.shrink_to_fit();
-  return annealed_str;
-};
-
-std::string codon::Seq::get_seq_strsep(
+std::string codon::Seq::get_seq_str(
+    const std::pair<codon::locator, codon::locator>& segment,
     codon::OutputFormat output_format) const {
+  const codon::locator& begin{segment.first};
+  const codon::locator& end{segment.second};
   if (this->seq.empty()) {
     PLOGD << "get_seq_strsep called on empty sequence";
     return "";
   }
+  if ((begin > end)) {
+    if (this->seq.at(end.index).is_empty()) {
+      PLOGD << "get_seq_strsep called on empty sequence";
+      return "VOID";
+    }
+    throw std::invalid_argument(
+        "Provided invalid locator pair to get_seq_str - begin higher than end");
+  }
+  int amount_first_codon{this->seq[begin.index].get_bases_len() - begin.shift +
+                         1};
+  int amount_last_codon{end.shift};
+  bool take_full_begin{begin.shift == 1};
+  bool take_full_end{end.shift == this->seq[end.index].get_bases_len()};
 
   std::stringstream ss;
   switch (output_format) {
     case codon::OutputFormat::as_DNA: {
-      std::for_each(this->seq.begin(), this->seq.end(),
-                    [&](const codon::Codon& codon) {
-                      ss << codon.get_bases_str() << " ";
-                    });
+      if (!take_full_begin) {
+        ss << this->get_codon_at(begin).get_bases_str();
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) { ss << codon.get_bases_str(); });
+      if (!take_full_end) {
+        ss << this->get_codon_at(codon::locator{end.index, 1}, end.shift)
+                  .get_bases_str();
+      }
       break;
     }
     case codon::OutputFormat::as_RNA: {
-      std::for_each(this->seq.begin(), this->seq.end(),
-                    [&](const codon::Codon& codon) {
-                      ss << codon::transcribe[codon] << " ";
-                    });
+      if (!take_full_begin) {
+        ss << codon::transcribe[this->get_codon_at(begin)];
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) { ss << codon::transcribe[codon]; });
+      if (!take_full_end) {
+        ss << codon::transcribe[this->get_codon_at(codon::locator{end.index, 1},
+                                                   end.shift)];
+      }
       break;
     }
     case codon::OutputFormat::as_PROT: {
-      std::for_each(this->seq.begin(), this->seq.end(),
-                    [&](const codon::Codon& codon) {
-                      ss << codon::translate[codon] << " ";
-                    });
+      if (!take_full_begin) {
+        ss << codon::translate[this->get_codon_at(begin)];
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) { ss << codon::translate[codon]; });
+      if (!take_full_end) {
+        ss << codon::translate[this->get_codon_at(codon::locator{end.index, 1},
+                                                  end.shift)];
+      }
+      break;
+    }
+    case codon::OutputFormat::as_CDN: {
+      if (!take_full_begin) {
+        ss << this->get_codon_at(begin).get_bases_encoded();
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) { ss << codon.get_bases_encoded(); });
+      if (!take_full_end) {
+        ss << this->get_codon_at(codon::locator{end.index, 1}, end.shift)
+                  .get_bases_encoded();
+      }
+      break;
+    }
+  }
+  return ss.str();
+};
+
+std::string codon::Seq::get_seq_strsep(codon::OutputFormat output_format,
+                                       char sep) const {
+  return this->get_seq_strsep(
+      std::pair<codon::locator, codon::locator>{this->get_first_loc(),
+                                                this->get_last_loc()},
+      output_format, sep);
+}
+
+std::string codon::Seq::get_seq_strsep(
+    const std::pair<codon::locator, codon::locator>& segment,
+    codon::OutputFormat output_format, char sep) const {
+  const codon::locator& begin{segment.first};
+  const codon::locator& end{segment.second};
+  if (this->seq.empty()) {
+    PLOGD << "get_seq_strsep called on empty sequence";
+    return "";
+  }
+  if ((begin > end)) {
+    if (this->seq.at(end.index).is_empty()) {
+      PLOGD << "get_seq_strsep called on empty sequence";
+      return "VOID";
+    }
+    throw std::invalid_argument(
+        "Provided invalid locator pair to get_seq_str - begin higher than end");
+  }
+  int amount_first_codon{this->seq[begin.index].get_bases_len() - begin.shift +
+                         1};
+  int amount_last_codon{end.shift};
+  bool take_full_begin{begin.shift == 1};
+  bool take_full_end{end.shift == this->seq[end.index].get_bases_len()};
+
+  std::stringstream ss;
+  switch (output_format) {
+    case codon::OutputFormat::as_DNA: {
+      if (!take_full_begin) {
+        ss << this->get_codon_at(begin).get_bases_str() << sep;
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) {
+            ss << codon.get_bases_str() << sep;
+          });
+      if (!take_full_end) {
+        ss << this->get_codon_at(codon::locator{end.index, 1}, end.shift)
+                  .get_bases_str()
+           << sep;
+      }
+      break;
+    }
+    case codon::OutputFormat::as_RNA: {
+      if (!take_full_begin) {
+        ss << codon::transcribe[this->get_codon_at(begin)] << sep;
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) {
+            ss << codon::transcribe[codon] << sep;
+          });
+      if (!take_full_end) {
+        ss << codon::transcribe[this->get_codon_at(codon::locator{end.index, 1},
+                                                   end.shift)]
+           << sep;
+      }
+      break;
+    }
+    case codon::OutputFormat::as_PROT: {
+      if (!take_full_begin) {
+        ss << codon::translate[this->get_codon_at(begin)] << sep;
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) {
+            ss << codon::translate[codon] << sep;
+          });
+      if (!take_full_end) {
+        ss << codon::translate[this->get_codon_at(codon::locator{end.index, 1},
+                                                  end.shift)]
+           << sep;
+      }
+      break;
+    }
+    case codon::OutputFormat::as_CDN: {
+      if (!take_full_begin) {
+        ss << this->get_codon_at(begin).get_bases_encoded() << sep;
+      }
+      std::for_each(
+          this->seq.begin() + begin.index + ((take_full_begin) ? 0 : 1),
+          this->seq.begin() + end.index + ((take_full_end) ? 1 : 0),
+          [&](const codon::Codon& codon) {
+            ss << codon.get_bases_encoded() << sep;
+          });
+      if (!take_full_end) {
+        ss << this->get_codon_at(codon::locator{end.index, 1}, end.shift)
+                  .get_bases_encoded()
+           << sep;
+      }
       break;
     }
   }
@@ -624,7 +760,7 @@ std::size_t codon::Seq::get_seq_len() const {
   return this->seq.size();
 }
 
-std::size_t codon::Seq::get_seq_trulen(std::string how) const {
+std::size_t codon::Seq::get_seq_trulen(std::string_view how) const {
   if (how == "codons") {
     std::size_t idx_left{this->get_first_idx()};
     std::size_t idx_right{this->get_last_idx()};
@@ -657,6 +793,7 @@ std::size_t codon::Seq::get_first_idx() const {
   return idx_fwd;
 }
 std::size_t codon::Seq::get_last_idx() const {
+  if (this->seq.empty()) return 0;
   std::size_t idx_rev = this->seq.size() - 1;
   while (idx_rev && !(this->seq.at(idx_rev).get_bases_len())) {
     --idx_rev;
@@ -877,15 +1014,7 @@ codon::locator codon::Seq::get_last_loc() const {
   std::size_t idx{this->get_last_idx()};
   int shift{this->seq[idx].get_bases_len()};
 
-  return codon::locator(idx, shift);
-}
-
-std::string codon::Seq::get_seq_encoded() const {
-  std::stringstream ss;
-  for (const codon::Codon& codon : this->seq) {
-    ss << codon.get_bases_encoded();
-  }
-  return ss.str();
+  return codon::locator(idx, ((shift) ? shift : 1));
 }
 
 bool codon::Seq::is_locator_valid(codon::locator locator) const {
@@ -1125,7 +1254,7 @@ void codon::Seq::hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
 
 void codon::Seq::hm_handleMemoryAndError(codon::Codon insert) {
   if (insert.is_empty()) {
-    throw std::invalid_argument("Tried to push_back an empty Codon.");
+    throw std::invalid_argument("Tried to push_back / insert an empty Codon.");
   }
   if (this->seq.size() + 1 > this->seq.capacity()) {
     this->seq.reserve(static_cast<std::size_t>((this->seq.size() + 1) * 1.2));
@@ -1135,7 +1264,8 @@ void codon::Seq::hm_handleMemoryAndError(codon::Codon insert) {
 
 void codon::Seq::hm_handleMemoryAndError(codon::Seq insert) {
   if (!insert.get_seq_trulen()) {
-    throw std::invalid_argument("Tried to push_back an empty sequence.");
+    throw std::invalid_argument(
+        "Tried to push_back / insert an empty sequence.");
   }
 
   if ((this->seq.size() + insert.seq.size()) > this->seq.capacity()) {

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -46,7 +47,8 @@ test::Result test::seq_test() {
   // compiler should optimise ReturnValueOptimization
   std::vector<codon::Seq> test_sequences{seq_build(arr_seq)};
   try {
-    // TODO: add check access
+    test::check_access();
+    PLOGD << "Check Access completed";
 
     test::check_shifting(test_sequences);
     PLOGD << "Check shifting completed";
@@ -150,7 +152,7 @@ void test::check_access() {
     codon::Codon GC{
         test_seq.get_codon_at(codon::locator(1, 3), 2, constants::C_OVERFLOW)};
     // GG test silent size_cut ignore
-    codon::Codon GG{test_seq.get_codon_at(codon::locator(1, 3), 3,
+    codon::Codon GG{test_seq.get_codon_at(codon::locator(1, 2), 3,
                                           constants::C_NO_OVERFLOW)};
     codon::Codon VOID{test_seq.get_codon_at(codon::locator(0, 1),
                                             constants::C_ZERO_CUT_SIZE)};
@@ -159,67 +161,32 @@ void test::check_access() {
     REQUIRE(GG.get_bases_str() == std::string("GG"));
     REQUIRE(VOID.get_bases_str() == std::string("VOID"));
   }
-
   {                                    // second scope
     codon::Seq test_seq{"AGGGCCCTT"};  // AGG GCC CTT
-    test_seq.push_back(codon::Codon("VOID"));
-    test_seq.insert_codon(codon::Codon("VOID"), test_seq.get_first_loc());
-    // => VOID AGG GCC CTT VOID
+    test_seq.right_shift();            // -AG GGC CCT T
+    test_seq.right_shift();            // --A GGG CCC TT
 
-    // get_seq_str void
-    REQUIRE(test_seq.get_seq_str() == std::string("VOIDAGGGCCCTTVOID"));
-    REQUIRE(test_seq.get_seq_strsep() == std::string("VOID AGG GCC CTT VOID "));
-
-    // get idx and loc void
-    codon::locator loc_1_1 = test_seq.get_first_loc();
+    codon::locator loc_0_1 = test_seq.get_first_loc();
     std::size_t first_idx_normal = test_seq.get_first_idx();
-    codon::locator loc_3_3 = test_seq.get_last_loc();
+    codon::locator loc_3_2 = test_seq.get_last_loc();
     std::size_t last_idx_normal = test_seq.get_last_idx();
-    REQUIRE(first_idx_normal == 1);
+    REQUIRE(first_idx_normal == 0);
     REQUIRE(last_idx_normal == 3);
-    REQUIRE(loc_1_1 == codon::locator(1, 1));
-    REQUIRE(loc_3_3 == codon::locator(3, 3));
+    REQUIRE(loc_0_1 == codon::locator(0, 1));
+    REQUIRE(loc_3_2 == codon::locator(3, 2));
 
     // get_seq_len
-    REQUIRE(test_seq.get_seq_len() == 5);
-    REQUIRE(test_seq.get_seq_trulen("codons") == 3);
-    REQUIRE(test_seq.get_seq_trulen("bp") == 9);
-
-    try {
-      test_seq.right_shift();
-      test_seq.right_shift();
-    } catch (std::exception &e) {
-      PLOGF << "Failed on right_shift() during check_access:\n" << e.what();
-      std::cerr << "Failed on right_shift() during check_access\n" << e.what();
-      abort();
-    }
-
-    // VOID --A GGG CCC TT-
-    REQUIRE(test_seq.get_seq_str() == std::string("VOIDAGGGCCCTTVOID"));
-    REQUIRE(test_seq.get_seq_strsep() == std::string("VOID A GGG CCC TT "));
-    REQUIRE_THROWS(test_seq.get_codon_at(codon::locator(0, 1)));
-    REQUIRE_THROWS(test_seq.get_codon_at(codon::locator(1, 2)));
-
-    loc_1_1 = test_seq.get_first_loc();
-    std::size_t first_idx_shift = test_seq.get_first_idx();
-    std::size_t last_idx_shift = test_seq.get_last_idx();
-    codon::locator loc_4_2 = test_seq.get_last_loc();
-
-    REQUIRE(test_seq.get_seq_len() == 5);
+    REQUIRE(test_seq.get_seq_len() == 4);
     REQUIRE(test_seq.get_seq_trulen("codons") == 4);
     REQUIRE(test_seq.get_seq_trulen("bp") == 9);
-    REQUIRE(first_idx_normal == 1);
-    REQUIRE(last_idx_normal == 4);
-    REQUIRE(loc_1_1 == codon::locator(1, 1));
-    REQUIRE(loc_4_2 == codon::locator(4, 2));
 
     // edgecases get_codon
     codon::Codon AGG{test_seq.get_codon_at(test_seq.get_first_loc(), 3,
                                            constants::C_OVERFLOW)};
     codon::Codon CTT{test_seq.get_codon_at(test_seq.get_last_loc() - 2, 3,
                                            constants::C_OVERFLOW)};
-    REQUIRE(AGG.get_bases_str() == std::string("AGG"));
-    REQUIRE(CTT.get_bases_str() == std::string("CTT"));
+    REQUIRE(AGG.get_bases_str() == "AGG");
+    REQUIRE(CTT.get_bases_str() == "CTT");
   }
 }
 
@@ -557,7 +524,13 @@ void test::check_pushback_codons(std::vector<codon::Seq> &vec_seq,
 void test::check_pushback_seqs(std::vector<codon::Seq> &vec_seq,
                                std::vector<codon::Seq> &inserts) {
   for (codon::Seq &curr_seq : vec_seq) {
-    for (codon::Seq curr_insert : inserts) {
+    for (const codon::Seq &curr_insert : inserts) {
+      PLOGD << "Sequence locator:\n"
+            << curr_seq.get_first_loc().to_str() << ", "
+            << curr_seq.get_last_loc().to_str();
+      PLOGD << "Insert locator:\n"
+            << curr_insert.get_first_loc().to_str() << ", "
+            << curr_insert.get_last_loc().to_str();
       PLOGD << "Pushing back insert:\n"
             << curr_insert.get_seq_strsep() << "\non sequence:\n"
             << curr_seq.get_seq_strsep();

@@ -120,15 +120,15 @@ void test::compare_Fasta(const codon::Fasta& single_loaded,
 
 void test::check_write_fna(const codon::Fasta& out_fna) {
   std::filesystem::path write_path = path_output / output_dna_name;
-  out_fna.write_FASTA(write_path.string(), codon::OutputFormat::as_DNA);
+  out_fna.write(write_path, codon::OutputFormat::as_DNA);
   g_generated_files.push_back(write_path);
 
   write_path = path_output / output_rna_name;
-  out_fna.write_FASTA(write_path.string(), codon::OutputFormat::as_RNA);
+  out_fna.write(write_path, codon::OutputFormat::as_RNA);
   g_generated_files.push_back(write_path);
 
   write_path = path_output / output_prot_name;
-  out_fna.write_FASTA(write_path.string(), codon::OutputFormat::as_PROT);
+  out_fna.write(write_path, codon::OutputFormat::as_PROT);
   g_generated_files.push_back(write_path);
 }
 
@@ -147,6 +147,6 @@ void test::check_written() {
 
 void test::check_write_cdn(const codon::Fasta& out_cdn) {
   std::filesystem::path write_path = path_output / output_cdn_name;
-  out_cdn.write_CODON(write_path);
+  out_cdn.write(write_path, codon::OutputFormat::as_CDN);
   g_generated_files.push_back(write_path);
 }

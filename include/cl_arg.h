@@ -18,6 +18,10 @@ enum Task : std::uint8_t {
   error,
 };
 
+void run_loading_bar(codon::cli::Task& s_task_status,
+                     codon::cli::Task& s_bar_status,
+                     const std::string& task_name);
+
 using namespace std::chrono_literals;
 struct Args {
   bool excl_range;
@@ -29,8 +33,8 @@ struct Args {
   std::string error_msg;
   std::chrono::milliseconds duration_ms;
 
-  Args(std::vector<Operation> operations, std::string path_in = NULL,
-       std::string path_out = NULL, std::string error_msg = NULL,
+  Args(std::vector<Operation> operations, std::string path_in = "",
+       std::string path_out = "", std::string error_msg = "",
        std::pair<codon::locator, codon::locator> range =
            std::pair<codon::locator, codon::locator>({0, 1}, {0, 1}),
        bool excl_range = false, bool need_help = false,
@@ -48,9 +52,11 @@ void display_help();
 void log_caller(const codon::cli::Args& arguments);
 
 void loader(std::promise<codon::Seq>&& promised_seq, Args& caller,
-            Task& s_task_status);
-void runner(codon::Seq& loaded_DNA, Args& caller, Task& s_task_status);
-void writer(const codon::Seq& seq, Args& caller, Task& s_task_status);
+            Task& s_task_status, Task& s_bar_status);
+void runner(codon::Seq& loaded_DNA, Args& caller, Task& s_task_status,
+            Task& s_bar_status);
+void writer(const codon::Seq& seq, Args& caller, Task& s_task_status,
+            Task& s_bar_status);
 
 }  // namespace cli
 }  // namespace codon

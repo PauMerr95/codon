@@ -14,6 +14,10 @@
 #include <utility>
 #include <vector>
 
+#include "indicators/color.hpp"
+#include "indicators/cursor_control.hpp"
+#include "indicators/indeterminate_progress_bar.hpp"
+#include "indicators/setting.hpp"
 #include "readwrite.h"
 #include "seq.h"
 
@@ -271,7 +275,8 @@ void codon::cli::log_caller(const codon::cli::Args& arg) {
 }
 
 void codon::cli::loader(std::promise<codon::Seq>&& promised_seq, Args& caller,
-                        Task& s_task_status) {
+                        Task& s_task_status, Task& s_bar_status) {
+  s_task_status = codon::cli::Task::running;
   auto start = std::chrono::high_resolution_clock::now();
   try {
     codon::Fasta loaded_DNA_fna(std::move(codon::load(caller.path_in)));
@@ -289,46 +294,54 @@ void codon::cli::loader(std::promise<codon::Seq>&& promised_seq, Args& caller,
   s_task_status = codon::cli::Task::completed;
 }
 
-void codon::cli::runner(codon::Seq& sequence, Args& caller,
-                        Task& s_task_status) {
-  // TODO: Implement try catch for errors to stop loading bar.
+void codon::cli::runner(codon::Seq& sequence, Args& caller, Task& s_task_status,
+                        Task& s_bar_status) {
+  s_task_status = codon::cli::Task::running;
   PLOGD << "Started codon::cli::runner ..." << caller.range.first.to_str()
         << " to " << caller.range.second.to_str();
   auto start = std::chrono::high_resolution_clock::now();
-  codon::locator begin{caller.range.first};
-  codon::locator final;
-  if (caller.range.first == caller.range.second) {
-    PLOGD << "ranges are the same";
-    final = sequence.get_last_loc();
-  } else {
-    PLOGD << "ranges are different";
-    final = caller.range.second;
-  }
+  try {
+    codon::locator begin{caller.range.first};
+    codon::locator final;
+    if (caller.range.first == caller.range.second) {
+      PLOGD << "ranges are the same";
+      final = sequence.get_last_loc();
+    } else {
+      PLOGD << "ranges are different";
+      final = caller.range.second;
+    }
 
-  PLOGD << "Runner: Corrected range from " << begin.to_str() << " to "
-        << final.to_str();
+    PLOGD << "Runner: Corrected range from " << begin.to_str() << " to "
+          << final.to_str();
 
-  if (caller.excl_range) {
-    sequence = std::move(sequence.subseq(begin, final));
-    PLOGD << "Extracted subsequence and overwrote loaded one";
-  }
+    if (caller.excl_range) {
+      sequence = std::move(sequence.subseq(begin, final));
+      PLOGD << "Extracted subsequence and overwrote loaded one";
+    }
 
-  for (const Operation& operation : caller.operations) {
-    switch (operation) {
-      case Operation::Reverse: {
-        sequence.reverse_inplace(begin, final);
-        PLOGD << "Reversed sequence from " << begin.to_str() << " to "
-              << final.to_str();
-        break;
+    for (const Operation& operation : caller.operations) {
+      switch (operation) {
+        case Operation::Reverse: {
+          sequence.reverse_inplace(begin, final);
+          PLOGD << "Reversed sequence from " << begin.to_str() << " to "
+                << final.to_str();
+          break;
+        }
+        case Operation::Flip: {
+          sequence.flip_inplace(begin, final);
+          PLOGD << "Flipped sequence." << begin.to_str() << " to "
+                << final.to_str();
+          break;
+        }
+        default:
+          break;
       }
-      case Operation::Flip: {
-        sequence.flip_inplace(begin, final);
-        PLOGD << "Flipped sequence." << begin.to_str() << " to "
-              << final.to_str();
-        break;
-      }
-      default:
-        break;
+    }
+  } catch (std::exception& error) {
+    s_task_status = codon::cli::Task::error;
+    caller.error_msg = error.what();
+    while (!(s_bar_status == codon::cli::Task::completed)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(55));
     }
   }
   auto end = std::chrono::high_resolution_clock::now();
@@ -339,69 +352,115 @@ void codon::cli::runner(codon::Seq& sequence, Args& caller,
 }
 
 void codon::cli::writer(const codon::Seq& sequence, codon::cli::Args& caller,
-                        Task& s_task_status) {
-  // TODO: Implement try catch for errors to stop loading bar.
-  PLOGD << "Started codon::cli::runner ..."
-        << "\nCaller path out: "
-        << ((caller.path_out.empty()) ? "no path out defined"
-                                      : caller.path_out);
-  std::stringstream ss;
-  codon::OutputFormat output_format{codon::OutputFormat::as_DNA};
-  if (!caller.operations.empty()) {
-    ss << ";Generated with codon cli - Operations ";
-    for (const Operation& operation : caller.operations) {
-      ss << " | ";
-      switch (operation) {
-        case Operation::Reverse:
-          ss << "Reverse";
-          break;
-        case Operation::Flip:
-          ss << "Flip";
-          break;
-        case Operation::Transcribe: {
-          ss << "Transcribe";
-          output_format = codon::OutputFormat::as_RNA;
-          break;
-        }
-        case Operation::Translate: {
-          ss << "Translate";
-          output_format = codon::OutputFormat::as_PROT;
-          break;
-        }
-        default:
-          break;
-      }
-    }
-  }
-
+                        Task& s_task_status, Task& s_bar_status) {
+  s_task_status = codon::cli::Task::running;
   auto start = std::chrono::high_resolution_clock::now();
-  codon::Fasta output(sequence, ">Unspecified -  writing to cout");
-  const std::string& path{caller.path_out};
-
-  // determine output file
-  if (path.empty()) {
-    PLOGD << "No output path defined ... writing to cout";
-    s_task_status = codon::cli::Task::completed;
-    output.write_FASTA(COUT, output_format);
-  } else {
-    output.name = '>';
-    output.name.append(path.substr(path.find_last_of("/\\") + 1));
-    output.comments = ss.str();
-    PLOGD << "Writing to specified output => " << path
-          << "\nName = " << output.name << "\nComments = " << output.comments;
-    if (caller.path_out.rfind(".codon") != std::string::npos) {
-      if (output_format != as_DNA) {
-        throw std::invalid_argument(
-            ".codon output used with translate or transcribe");
+  try {
+    PLOGD << "Started codon::cli::runner ..."
+          << "\nCaller path out: "
+          << ((caller.path_out.empty()) ? "no path out defined"
+                                        : caller.path_out);
+    std::stringstream ss;
+    codon::OutputFormat output_format{codon::OutputFormat::as_DNA};
+    if (!caller.operations.empty()) {
+      ss << ";Generated with codon cli - Operations ";
+      for (const Operation& operation : caller.operations) {
+        ss << " | ";
+        switch (operation) {
+          case Operation::Reverse:
+            ss << "Reverse";
+            break;
+          case Operation::Flip:
+            ss << "Flip";
+            break;
+          case Operation::Transcribe: {
+            ss << "Transcribe";
+            output_format = codon::OutputFormat::as_RNA;
+            break;
+          }
+          case Operation::Translate: {
+            ss << "Translate";
+            output_format = codon::OutputFormat::as_PROT;
+            break;
+          }
+          default:
+            break;
+        }
       }
-      output.write_CODON(caller.path_out);
-    } else {
-      output.write_FASTA(caller.path_out, output_format);
     }
-    s_task_status = codon::cli::Task::completed;
+
+    codon::Fasta output(sequence, ">Unspecified -  writing to cout");
+    const std::string& path{caller.path_out};
+
+    // determine output file
+    if (path.empty()) {
+      PLOGD << "No output path defined ... writing to cout";
+      auto end = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+      caller.duration_ms = duration;
+      s_task_status = codon::cli::Task::completed;
+      while (!(s_bar_status == Task::completed)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(55));
+      }
+      output.write(COUT, output_format);
+    } else {
+      output.name = '>';
+      output.name.append(path.substr(path.find_last_of("/\\") + 1));
+      output.comments = ss.str();
+      PLOGD << "Writing to specified output => " << path
+            << "\nName = " << output.name << "\nComments = " << output.comments;
+      if (caller.path_out.rfind(".codon") != std::string::npos) {
+        if (output_format != as_DNA) {
+          throw std::invalid_argument(
+              ".codon output used with translate or transcribe");
+        }
+        output_format = codon::OutputFormat::as_CDN;
+      }
+      output.write(caller.path_out, output_format);
+      s_task_status = codon::cli::Task::completed;
+    }
+  } catch (std::exception& error) {
+    s_task_status = codon::cli::Task::error;
+    caller.error_msg = error.what();
+    while (!(s_bar_status == codon::cli::Task::completed)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(55));
+    }
   }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
   caller.duration_ms = duration;
+}
+
+void codon::cli::run_loading_bar(codon::cli::Task& s_task_status,
+                                 codon::cli::Task& s_bar_status,
+                                 const std::string& task_name) {
+  s_bar_status = codon::cli::Task::running;
+  indicators::IndeterminateProgressBar bar{
+      indicators::option::BarWidth{40},
+      indicators::option::Start{"["},
+      indicators::option::Fill{"="},
+      indicators::option::Lead{"<>"},
+      indicators::option::End{"]"},
+      indicators::option::PostfixText{task_name},
+      indicators::option::ForegroundColor{indicators::Color::yellow},
+  };
+
+  indicators::show_console_cursor(false);
+  while (s_task_status == codon::cli::Task::running) {
+    bar.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+  indicators::show_console_cursor(true);
+  if (s_task_status == codon::cli::completed) {
+    bar.set_option(
+        indicators::option::ForegroundColor{indicators::Color::green});
+    bar.set_option(indicators::option::PostfixText{"Completed!"});
+  } else {
+    bar.set_option(indicators::option::ForegroundColor{indicators::Color::red});
+    bar.set_option(indicators::option::PostfixText{"Failed!"});
+  }
+  bar.mark_as_completed();
+  s_bar_status = codon::cli::Task::completed;
 }

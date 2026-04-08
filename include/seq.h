@@ -2,17 +2,14 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "codon.h"
 
 namespace codon {
 
-enum OutputFormat : std::int8_t {
-  as_DNA,
-  as_RNA,
-  as_PROT,
-};
+enum OutputFormat : std::int8_t { as_DNA, as_RNA, as_PROT, as_CDN };
 
 struct locator {
   int shift;
@@ -138,15 +135,23 @@ class Seq {
 
   std::string get_seq_str(
       codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
-  std::string get_seq_strsep(
+  std::string get_seq_str(
+      const std::pair<codon::locator, codon::locator>& segment,
       codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
-  std::string get_seq_encoded() const;
+
+  std::string get_seq_strsep(
+      codon::OutputFormat output_format = codon::OutputFormat::as_DNA,
+      char sep = ' ') const;
+  std::string get_seq_strsep(
+      const std::pair<codon::locator, codon::locator>& segment,
+      codon::OutputFormat output_format = codon::OutputFormat::as_DNA,
+      char sep = ' ') const;
 
   std::vector<std::bitset<8>> get_seq_bin() const;
   codon::Codon get_codon_at(const codon::locator& locator, int size_cut = 3,
                             bool overflow = false) const;
   std::size_t get_seq_len() const;
-  std::size_t get_seq_trulen(std::string how = "codons") const;
+  std::size_t get_seq_trulen(std::string_view how = "codons") const;
 
   std::size_t get_first_idx() const;
   std::size_t get_last_idx() const;

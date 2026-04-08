@@ -8,15 +8,7 @@
 #include <thread>
 
 #include "cl_arg.h"
-#include "indicators/color.hpp"
-#include "indicators/cursor_control.hpp"
-#include "indicators/indeterminate_progress_bar.hpp"
-#include "indicators/setting.hpp"
-#include "readwrite.h"
 #include "seq.h"
-
-void run_loading_bar(codon::cli::Task& s_task_status,
-                     const std::string& task_name);
 
 int main(int argc, char* argv[]) {
   std::cout << "Current Path:" << std::filesystem::current_path() << "\n";
@@ -35,10 +27,13 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Loading sequence\n";
     static codon::cli::Task s_task_status{codon::cli::Task::running};
+    static codon::cli::Task s_bar_status{codon::cli::Task::running};
     std::thread worker_load(codon::cli::loader, std::move(promise_loaded_DNA),
-                            std::ref(caller), std::ref(s_task_status));
+                            std::ref(caller), std::ref(s_task_status),
+                            std::ref(s_bar_status));
 
-    run_loading_bar(s_task_status, "Loading and preparing DNA sequence");
+    codon::cli::run_loading_bar(s_task_status, s_bar_status,
+                                "Loading and preparing DNA sequence");
     worker_load.join();
     std::cout << "Duration: " << (caller.duration_ms.count() / 1000.f)
               << " seconds\n\n";
@@ -52,8 +47,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Running sequence operations\n";
     s_task_status = codon::cli::Task::running;
     std::thread worker_run(codon::cli::runner, std::ref(loaded_DNA),
-                           std::ref(caller), std::ref(s_task_status));
-    run_loading_bar(s_task_status, "Manipulating sequence.");
+                           std::ref(caller), std::ref(s_task_status),
+                           std::ref(s_bar_status));
+    codon::cli::run_loading_bar(s_task_status, s_bar_status,
+                                "Manipulating sequence.");
     worker_run.join();
     std::cout << "Duration: " << (caller.duration_ms.count() / 1000.f)
               << " seconds\n\n";
@@ -66,11 +63,13 @@ int main(int argc, char* argv[]) {
     std::cout << "Running write operations\n";
     s_task_status = codon::cli::Task::running;
     std::thread worker_write(codon::cli::writer, std::ref(loaded_DNA),
-                             std::ref(caller), std::ref(s_task_status));
-    run_loading_bar(s_task_status, "Writing sequence.");
-    worker_write.join();
+                             std::ref(caller), std::ref(s_task_status),
+                             std::ref(s_bar_status));
+    codon::cli::run_loading_bar(s_task_status, s_bar_status,
+                                "Writing sequence.");
     std::cout << "Duration: " << (caller.duration_ms.count() / 1000.f)
               << " seconds\n\n";
+    worker_write.join();
     if (s_task_status == codon::cli::Task::error) {
       std::cout << "Error encountered during loading: " << caller.error_msg
                 << std::endl;
@@ -155,33 +154,4 @@ auto duration_write_fasta =
     }
     */
   return 0;
-}
-
-void run_loading_bar(codon::cli::Task& s_task_status,
-                     const std::string& task_name) {
-  indicators::IndeterminateProgressBar bar{
-      indicators::option::BarWidth{40},
-      indicators::option::Start{"["},
-      indicators::option::Fill{"="},
-      indicators::option::Lead{"<>"},
-      indicators::option::End{"]"},
-      indicators::option::PostfixText{task_name},
-      indicators::option::ForegroundColor{indicators::Color::yellow},
-  };
-
-  indicators::show_console_cursor(false);
-  while (s_task_status == codon::cli::Task::running) {
-    bar.tick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
-  indicators::show_console_cursor(true);
-  if (s_task_status == codon::cli::completed) {
-    bar.set_option(
-        indicators::option::ForegroundColor{indicators::Color::green});
-    bar.set_option(indicators::option::PostfixText{"Completed!"});
-  } else {
-    bar.set_option(indicators::option::ForegroundColor{indicators::Color::red});
-    bar.set_option(indicators::option::PostfixText{"Failed!"});
-  }
-  bar.mark_as_completed();
 }

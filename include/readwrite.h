@@ -15,13 +15,10 @@ struct Fasta {
   Fasta(codon::Fasta&) = default;
   Fasta(codon::Fasta&&) noexcept = default;
 
-  void write_FASTA(const std::string& path_out = "cout",
-                   OutputFormat OutputFormat = as_DNA) const;
-  void write_FASTA(const std::filesystem::path& path_out,
-                   OutputFormat OutputFormat = as_DNA) const;
-
-  void write_CODON(const std::string& path_out = "cout") const;
-  void write_CODON(const std::filesystem::path& path_out) const;
+  void write(const std::filesystem::path& = "cout",
+             OutputFormat OutputFormat = as_DNA) const;
+  void write_sep(const std::filesystem::path& = "cout",
+                 OutputFormat OutputFormat = as_DNA, char sep = ' ') const;
 };
 
 codon::Fasta load(const std::string& path_in);
