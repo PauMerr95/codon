@@ -12,6 +12,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <limits>
 
 #include "codon.h"
 #include "transmute.h"
