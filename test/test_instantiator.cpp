@@ -18,11 +18,6 @@ TEST_CASE("locator", "[seq]") {
   }
 }
 
-TEST_CASE("locator", "[seq]") {
-  SECTION("testing seq.cpp - locator") { REQUIRE(test::locator_test() == 0); }
-  PLOGD << "Passed seq subtest locator";
-}
-
 TEST_CASE("seq", "[seq]") {
   SECTION("testing seq.cpp - Seq") {
     REQUIRE(test::seq_test() == test::Result::Pass);
