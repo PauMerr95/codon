@@ -851,6 +851,9 @@ codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
   int overflow = (locator.shift - 1) + (size_cut - original_len);
   if (overflow < 0) overflow = 0;
   int cut_main = size_cut - overflow;
+  PLOGD << "Calculated overflow = " << overflow << " (shift = " << locator.shift
+        << ", original_len = " << original_len << ", size_cut = " << size_cut
+        << ") and cut main = " << cut_main;
 
   while (cut_main) {
     popped_codon.insert_right(this->seq[locator.index].pop(locator.shift));
