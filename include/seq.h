@@ -160,4 +160,5 @@ class Seq {
 
   bool is_locator_valid(codon::locator locator) const;
 };
+
 }  // namespace codon

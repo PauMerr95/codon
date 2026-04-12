@@ -10,6 +10,7 @@ on:
 
 jobs:
   build:
+    name: build && test
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -104,6 +105,7 @@ jobs:
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure --no-tests=error
 
   coverage:
+    name: coverage
     runs-on: ubuntu-latest
     needs: build
 
