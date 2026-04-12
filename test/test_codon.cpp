@@ -20,7 +20,9 @@ test::Result test::codon_test() {
   std::vector<codon::Codon> codons_generated(arr_bases_str.size(),
                                              codon::Codon("VOID"));
 
+  test::check_creation_str(arr_bases_str);
   test::check_creation_str(arr_bases_str, codons_generated);
+
   test::check_creation_base(arr_bases, 4);
   PLOGD << "Passed creation check";
 
@@ -37,10 +39,14 @@ test::Result test::codon_test() {
 }
 
 void test::check_creation_str(std::vector<std::string> arr_bases) {
-  for (std::string bases : arr_bases) {
-    codon::Codon triplet_temp = codon::Codon(bases);
-    REQUIRE(bases == triplet_temp.get_bases_str());
-    REQUIRE(bases.length() == triplet_temp.get_bases_len());
+  for (std::string bases_str : arr_bases) {
+    codon::Codon triplet_temp = codon::Codon(bases_str);
+    REQUIRE(bases_str == triplet_temp.get_bases_str());
+    if (bases_str == "VOID" || bases_str == "SWITCH") {
+      REQUIRE(triplet_temp.get_bases_len() == 0);
+    } else {
+      REQUIRE(bases_str.length() == triplet_temp.get_bases_len());
+    }
   }
 }
 
@@ -208,8 +214,6 @@ void flip_string(std::string& codon) {
       case 'T':
         base = 'A';
         break;
-      default:
-        return;
     }
   }
 }

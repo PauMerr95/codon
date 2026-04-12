@@ -58,7 +58,10 @@ test::Result test::seq_test() {
     test::check_insertions_codons(test_sequences, vec_codon);
     PLOGD << "Check insertions_codons completed";
 
-    test::check_insertions_seqs(test_sequences, test_sequences);
+    std::vector<codon::Seq> seq_inserts(test_sequences);
+    seq_inserts.emplace_back(codon::Seq(codon::Codon("VOID")));
+
+    test::check_insertions_seqs(test_sequences, seq_inserts);
     PLOGD << "Check insertions_seqs completed";
 
     test::check_pushback_bases(test_sequences, vec_bases);
@@ -66,9 +69,6 @@ test::Result test::seq_test() {
 
     test::check_pushback_codons(test_sequences, vec_codon);
     PLOGD << "Check pushback_codons completed";
-
-    std::vector<codon::Seq> seq_inserts(test_sequences);
-    seq_inserts.emplace_back(codon::Seq(codon::Codon("VOID")));
 
     test::check_pushback_seqs(test_sequences, seq_inserts);
     PLOGD << "Check pushback_seqs completed";
@@ -208,31 +208,24 @@ void test::check_shifting(std::vector<codon::Seq> &vec_seq) {
     std::vector<std::string> control_codons{
         generate_codons_str(curr_seq, control_locator)};
 
-    PLOGD << "Shifting '" << curr_seq.get_seq_strsep() << "'.";
+    codon::Seq original_seq = curr_seq;
+
     curr_seq.right_shift();
-    PLOGD << "After right_shift: '" << curr_seq.get_seq_strsep() << "'.";
     REQUIRE(curr_seq.get_codon_at(control_locator[0]).get_bases_len() < 3);
+    REQUIRE_FALSE(curr_seq == original_seq);
     curr_seq.left_shift();
-    PLOGD << "After left_shift: '" << curr_seq.get_seq_strsep() << "'.";
     REQUIRE(curr_seq.get_codon_at(control_locator[0]).get_bases_len() == 3);
     curr_seq.right_shift();
-    PLOGD << "After right_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.right_shift();
-    PLOGD << "After right_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.right_shift();
-    PLOGD << "After right_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.right_shift();
-    PLOGD << "After right_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.left_shift();
-    PLOGD << "After left_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.left_shift();
-    PLOGD << "After left_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.left_shift();
-    PLOGD << "After left_shift: '" << curr_seq.get_seq_strsep() << "'.";
     curr_seq.left_shift();
-    PLOGD << "After left_shift: '" << curr_seq.get_seq_strsep() << "'.";
     std::size_t size_after_shift = curr_seq.get_seq_len();
     REQUIRE(size_before_shift == size_after_shift);
+    REQUIRE(curr_seq == original_seq);
 
     std::vector<std::string> codons_to_verify{
         generate_codons_str(curr_seq, control_locator)};
@@ -439,7 +432,7 @@ void test::check_insertion_seq(codon::Seq &seq, codon::Seq &insert,
                                codon::locator locator) {
   PLOGD << "Inserting '" << insert.get_seq_strsep() << "' into location "
         << locator.index << " with shift " << locator.shift;
-  if (insert.get_seq_len() == 0) {
+  if (insert.get_seq_trulen() == 0) {
     PLOGD << "Edge case: empty insert provided for insert seq";
     REQUIRE_THROWS(seq.insert_seq(insert, locator));
     PLOGD << "Edge case: Passed!";

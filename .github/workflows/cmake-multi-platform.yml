@@ -148,3 +148,6 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: coverage.info
+          ignore:
+            - "test_*.cpp"
+            - "testing.h"
