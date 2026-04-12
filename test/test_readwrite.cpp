@@ -25,6 +25,8 @@ std::vector<std::filesystem::path> g_generated_files{};
 test::Result test::readwrite_test() {
   try {
     std::filesystem::path load_path = path_input / input_name;
+    std::filesystem::create_directory(path_output);
+
     PLOGD << "Path in: " << path_input.string();
 
     codon::Fasta test_fna_single{test::check_load_single(load_path)};
