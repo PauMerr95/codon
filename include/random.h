@@ -25,5 +25,8 @@ inline std::mt19937 mt{generate()};
 inline int get_int(int min, int max) {
   return std::uniform_int_distribution{min, max}(mt);
 };
+inline int get_size_t(std::size_t min, std::size_t max) {
+  return std::uniform_int_distribution{min, max}(mt);
+};
 
 }  // namespace randomiser

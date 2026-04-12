@@ -7,16 +7,25 @@
 #define CATCH_CONFIG_MAIN
 
 TEST_CASE("codon", "[codon]") {
-  SECTION("testing codon.cpp") { REQUIRE(test::codon_test() == 0); }
-  PLOGD << "Passed codon test";
+  SECTION("testing codon.cpp") {
+    REQUIRE(test::codon_test() == test::Result::Pass);
+  }
 }
 
 TEST_CASE("locator", "[seq]") {
-  SECTION("testing seq.cpp - locator") { REQUIRE(test::locator_test() == 0); }
-  PLOGD << "Passed seq subtest locator";
+  SECTION("testing seq.cpp - locator") {
+    REQUIRE(test::locator_test() == test::Result::Pass);
+  }
 }
 
 TEST_CASE("seq", "[seq]") {
-  SECTION("testing seq.cpp - Seq") { REQUIRE(test::seq_test() == 0); }
-  PLOGD << "Passed seq main test";
+  SECTION("testing seq.cpp - Seq") {
+    REQUIRE(test::seq_test() == test::Result::Pass);
+  }
+}
+
+TEST_CASE("readwrite", "[IO]") {
+  SECTION("testing seq.cpp - Seq") {
+    REQUIRE(test::readwrite_test() == test::Result::Pass);
+  }
 }

@@ -4,6 +4,9 @@ Testing/
 setup_config.bat
 cmake/
 .git/
+.codespace/
 include/Catch2
 include/plog
+include/indicators
 *.cfg
+*.bat

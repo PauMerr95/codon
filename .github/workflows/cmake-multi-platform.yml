@@ -143,8 +143,10 @@ jobs:
           lcov --capture --directory build --output-file coverage.info --ignore-errors source
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
           lcov --remove coverage.info '*/_deps/*' --output-file coverage.info
-
+          lcov --remove coverage.info '*/test_*.cpp' --output-file coverage.info
+          
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: coverage.info
+

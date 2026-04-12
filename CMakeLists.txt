@@ -35,13 +35,17 @@ if(NOT compiler_opts_loaded_locally)
 endif()
 
 # -- specify libraries used --
-add_library(codon_lib src/codon.cpp src/seq.cpp)
-
+add_library(codon_lib
+            src/codon.cpp
+            src/seq.cpp
+            src/readwrite.cpp
+            src/transmute.cpp)
 
 target_include_directories(codon_lib
 	PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/plog/include
+    ${PROJECT_SOURCE_DIR}/include/indicators/include
 )
 
 # -- imported compiler options --
@@ -52,7 +56,7 @@ target_compile_options(codon_lib
 )
 
 # -- main executable / you can change the name here--
-add_executable(codon src/main.cpp src/logging.cpp)
+add_executable(codon src/main.cpp src/logging.cpp src/cl_arg.cpp)
 
 target_link_libraries(codon
 	PRIVATE
@@ -62,7 +66,9 @@ target_link_libraries(codon
 target_compile_definitions(codon
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_codon.csv"
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
 )
+
 
 # -- testing ---
 include(FetchContent)
@@ -92,6 +98,7 @@ add_executable(testing
     test/test_codon.cpp
     test/test_seq.cpp
     test/test_locator.cpp
+    test/test_readwrite.cpp
     src/logging.cpp)
 
 target_link_libraries(testing
@@ -106,4 +113,5 @@ catch_discover_tests(testing)
 target_compile_definitions(testing
     PRIVATE
     PLOG_FILE_NAME="${CMAKE_BINARY_DIR}/Log_test_codon.csv"
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
 )
