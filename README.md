@@ -4,7 +4,7 @@
 Codon is a small C++ library to store a codon in a single byte to perform fast bit-manipulation operations for high-throughput nucleotide data processing.
 
 <p align="center">
-  <img src="img/mascot.jpg"/>
+  <img src="img/mascot.jpg" width="400px"/>
 </p>
 
 Why you should use codon:
