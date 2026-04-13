@@ -99,26 +99,41 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
 
   for (codon::Codon temp_codon : arr_codons) {
     if (temp_codon.get_bases_len() == 0) {
-      std::bitset<8> original_void = temp_codon.get_bases_bin();
-      temp_codon.cast_to_switch();
-      REQUIRE(temp_codon.get_bases_bin() == ~original_void);
+      codon::Codon original_void = temp_codon;
+      temp_codon.set_orientation(codon::Orientation::ThreeToFive);
+      REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
+      REQUIRE(temp_codon.is_complement());
+      temp_codon.set_orientation(codon::Orientation::FiveToThree);
+      REQUIRE_FALSE(temp_codon.is_complement());
+      REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
+      if (original_void.is_complement()) {
+        REQUIRE(temp_codon != original_void);
+      } else {
+        REQUIRE(temp_codon == original_void);
+      }
       continue;
     }
 
     codon::Codon original_codon = temp_codon;
-    if (original_codon.get_bases_len() > 0) {
-      codon::base dropped = temp_codon.pop(1);
-      if (original_codon.get_bases_len() == 1) {
-        std::string goal_removed_str{"VOID"};
-        REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
-      } else {
-        std::string goal_removed_str{original_codon.get_bases_str().substr(1)};
-        REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
-      }
-      REQUIRE(temp_codon.get_bases_len() < original_codon.get_bases_len());
-      temp_codon.insert_left(dropped);
-      REQUIRE(temp_codon.get_bases_str() == original_codon.get_bases_str());
+    temp_codon.set_orientation(codon::Orientation::ThreeToFive);
+    REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
+    REQUIRE(temp_codon.is_complement());
+    temp_codon.set_orientation(codon::Orientation::FiveToThree);
+    REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
+    REQUIRE_FALSE(temp_codon.is_complement());
+    REQUIRE(temp_codon == original_codon);
+
+    codon::base dropped = temp_codon.pop(1);
+    if (original_codon.get_bases_len() == 1) {
+      std::string goal_removed_str{"VOID"};
+      REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
+    } else {
+      std::string goal_removed_str{original_codon.get_bases_str().substr(1)};
+      REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
     }
+    REQUIRE(temp_codon.get_bases_len() < original_codon.get_bases_len());
+    temp_codon.insert_left(dropped);
+    REQUIRE(temp_codon.get_bases_str() == original_codon.get_bases_str());
     codon::Codon reverse_codon = codon::Codon("VOID");
     codon::Codon final_codon = codon::Codon("VOID");
 

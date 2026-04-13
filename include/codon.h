@@ -7,6 +7,7 @@
 namespace codon {
 
 enum base : std::uint8_t { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
+enum class Orientation : bool { FiveToThree, ThreeToFive };
 enum marker : unsigned int {
   n_strand_VOID = 0b00'00'00'00,
   n_strand_1bp = 0b00'00'01'00,
@@ -53,8 +54,6 @@ class Codon {
   std::string get_bases_str() const;
   base get_base_at(int location) const;
 
-  void cast_to_switch();
-
   void insert_right(base base);
   void insert_left(base base);
   base squeeze_right(base base);
@@ -63,6 +62,9 @@ class Codon {
 
   codon::Codon reverse() const;
   void reverse_inplace();
+
+  void set_orientation(codon::Orientation orientation);
+  codon::Orientation get_orientation() const;
 
   codon::Codon flip() const;
   void flip_inplace();
