@@ -23,7 +23,7 @@ How it looks:
 ### Using the library to reverse a segment from the 10'000th to the 15'000th base
 
 ```c++
-#include <codon_lib>
+#include <codon/readwrite.h>
 
 int main() {
     codon::Fasta input = codon::load("./test/input_testing/Human mitochondrial DNA.fasta");
