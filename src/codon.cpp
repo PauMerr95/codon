@@ -80,21 +80,23 @@ codon::Codon::Codon(const base& base) {
 }
 
 codon::Codon::Codon(char enc_char) {
-  if ((enc_char < 32) || (enc_char > 115)) {
+  if ((enc_char < 38) || (enc_char > 126) ||
+      ((enc_char > 57) && (enc_char < 63))) {
     std::string message(
         "Failed to generate Codon. Encountered invalid encoded character: ");
     message.push_back(enc_char);
     throw std::runtime_error(message);
   }
-  if (enc_char < 36) {
-    // 32 - 35: singlet
-    this->bases = static_cast<std::uint8_t>(enc_char - 28);
-  } else if (enc_char < 52) {
-    // 36 - 51: duplet
-    this->bases = static_cast<std::uint8_t>(enc_char - 20);
+  if (enc_char < 42) {
+    // 39 - 41: singlet
+    this->bases = static_cast<std::uint8_t>(enc_char - 34);
+  } else if (enc_char < 58) {
+    // 42 - 59: duplet
+    this->bases = static_cast<std::uint8_t>(enc_char - 26);
   } else {
-    // 52 - 115: triplet
-    this->bases = static_cast<std::uint8_t>(enc_char + 12);
+    // 58 - 62: Reserved for fasta Formatting (includes >, ;)
+    // 64 - 126: triplet
+    this->bases = static_cast<std::uint8_t>(enc_char + 1);
   }
 }
 
@@ -175,11 +177,11 @@ char codon::Codon::get_bases_encoded() const {
                                    ? static_cast<std::uint8_t>(~this->bases)
                                    : this->bases};
   if (static_cast<std::uint8_t>(64) & temporary_codon) {
-    return this->bases - 12;
+    return this->bases - 1;
   } else if (static_cast<std::uint8_t>(16) & temporary_codon) {
-    return this->bases + 20;
+    return this->bases + 26;
   } else if (static_cast<std::uint8_t>(4) & temporary_codon) {
-    return this->bases + 28;
+    return this->bases + 34;
   } else {
     throw std::runtime_error("Failed to transform codon to encoded char");
   }
@@ -260,16 +262,64 @@ codon::base codon::Codon::get_base_at(int shift = 1) const {
   }
 }
 
-void codon::Codon::cast_to_switch() {
-  // Toggles the codong between a VOID (0x00) and a SWITCH (0xFF)
-  if (this->bases == codon::marker::n_strand_VOID)
-    this->bases = codon::marker::c_strand_VOID;
-  else if (this->bases == codon::marker::c_strand_VOID)
-    this->bases = codon::marker::n_strand_VOID;
-  else
-    PLOGF << "Fatal Error: Trying to cast encoding codon to switch";
+codon::Orientation codon::Codon::get_orientation() const {
+  return static_cast<codon::Orientation>(this->is_complement());
 }
 
+void codon::Codon::set_orientation(codon::Orientation orientation) {
+  switch (orientation) {
+    case codon::Orientation::FiveToThree: {
+      switch (this->get_bases_len()) {
+        case 0:
+          this->bases = codon::marker::n_strand_VOID;
+          return;
+        case 1: {
+          unsigned int bases = this->bases & codon::mask::base_1;
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::n_strand_1bp);
+          return;
+        }
+        case 2: {
+          unsigned int bases = this->bases & codon::mask::r_half;
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::n_strand_2bp);
+          return;
+        }
+        case 3: {
+          unsigned int bases = this->bases & ~(codon::mask::mark_3);
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::n_strand_3bp);
+          return;
+        }
+      }
+    }
+    case codon::Orientation::ThreeToFive: {
+      switch (this->get_bases_len()) {
+        case 0:
+          this->bases = codon::marker::c_strand_VOID;
+          return;
+        case 1: {
+          unsigned int bases = this->bases & codon::mask::base_1;
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::c_strand_1bp);
+          return;
+        }
+        case 2: {
+          unsigned int bases = this->bases & codon::mask::r_half;
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::c_strand_2bp);
+          return;
+        }
+        case 3: {
+          unsigned int bases = this->bases & ~(codon::mask::mark_3);
+          this->bases =
+              static_cast<std::uint8_t>(bases | codon::marker::c_strand_3bp);
+          return;
+        }
+      }
+    }
+  }
+}
 void codon::Codon::insert_right(codon::base base) {
   /* argument becomes new position get_bases_len()+1
    * contains no check if already full -> that has to be done before calling the
