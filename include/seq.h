@@ -227,9 +227,15 @@ class Seq {
     pointer operator->() const {return _ptr;}
 
     iterator& operator++() { ++_ptr; return *this;}
+    iterator& operator--() { --_ptr; return *this;}
     iterator operator++(int) {
       iterator tmp = *this;
       ++(*this);
+      return tmp;
+    }
+    iterator operator--(int) {
+      iterator tmp = *this;
+      --(*this);
       return tmp;
     }
 
@@ -263,10 +269,25 @@ class Seq {
   struct ref_base_wrapper {
     codon::Codon& _codon;
     codon::shift _shift;
-  };
-  struct ptr_base_wrapper {
-    codon::Codon* _codon;
-    codon::shift _shift;
+
+    codon::base unwrap() const {
+      return _codon.get_base_at(static_cast<int>(_shift) + 1);
+    }
+    codon::base operator*() const {
+      return this->unwrap();
+    }
+    // ref_base_wrapper operator=(codon::base b){
+    //   _codon.replace(b, _shift);
+    //   return *this;
+    // }
+    
+    bool operator==(const ref_base_wrapper& other) const {
+      return ((_codon == other._codon)
+           && (_shift == other._shift));
+    }
+    bool operator!=(const ref_base_wrapper& other) const {
+      return !(*this == other);
+    }
   };
 
   // Iterator class for iterating over Bases in a Seq
@@ -278,13 +299,11 @@ class Seq {
     using iterator_category = std::random_access_iterator_tag;
     using value_type = codon::Codon;
     using difference_type = std::ptrdiff_t;
-    using pointer = ptr_base_wrapper;
     using reference = ref_base_wrapper;
 
     explicit base_iterator(codon::Codon* ptr, codon::shift shift): _ptr{ptr}, _shift{shift} {}
 
-    reference operator*() {return {*_ptr, _shift};}
-    pointer operator->() {return {_ptr, _shift};}
+    reference operator*() const {return {*_ptr, _shift};}
 
     base_iterator& operator++() {
       if (++_shift == shift::ZERO) {
