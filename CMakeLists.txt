@@ -99,6 +99,7 @@ add_executable(testing
     test/test_seq.cpp
     test/test_locator.cpp
     test/test_readwrite.cpp
+    test/test_iterators.cpp
     src/logging.cpp)
 
 target_link_libraries(testing
