@@ -231,9 +231,9 @@ std::string codon::Codon::get_bases_str() const {
   return codon_str;
 }
 
-codon::base codon::Codon::get_base_at(int shift = 1) const {
+codon::base codon::Codon::get_base_at(codon::shift shift) const {
   switch (shift) {
-    case 1: {
+    case ZERO: {
       if (this->get_bases_len() == 3)
         return static_cast<codon::base>((this->bases & codon::mask::base_3) >>
                                         4);
@@ -243,20 +243,20 @@ codon::base codon::Codon::get_base_at(int shift = 1) const {
       else if (this->get_bases_len() == 1)
         return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
-    case 2: {
+    case ONE: {
       if (this->get_bases_len() == 3)
         return static_cast<codon::base>((this->bases & codon::mask::base_2) >>
                                         2);
       else if (this->get_bases_len() == 2)
         return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
-    case 3: {
+    case TWO: {
       return static_cast<codon::base>(this->bases & codon::mask::base_1);
     }
     default: {
       std::string message =
-          "Expected shift for codon to be between 1 and 3 but received ";
-      message += (std::to_string(shift) + ".");
+          "Expected shift for codon to be between 0 and 2 but received ";
+      message += (std::to_string(static_cast<int>(shift)) + ".");
       throw std::invalid_argument(message);
     }
   }

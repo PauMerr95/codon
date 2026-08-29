@@ -91,10 +91,11 @@ void test::check_creation_base(codon::base arr_bases[], int len) {
 void test::check_operations(std::vector<codon::Codon> arr_codons) {
   codon::Codon first_codon_TCA = arr_codons[0];
   codon::Codon second_codon_GGG = arr_codons[1];
-  REQUIRE(first_codon_TCA.get_base_at(1) == codon::base::T);
-  REQUIRE(first_codon_TCA.get_base_at(2) == codon::base::C);
-  REQUIRE(first_codon_TCA.get_base_at(3) == codon::base::A);
-  REQUIRE(second_codon_GGG.get_base_at(randomiser::get_int(1, 3)) ==
+  REQUIRE(first_codon_TCA.get_base_at(codon::shift::ZERO) == codon::base::T);
+  REQUIRE(first_codon_TCA.get_base_at(codon::shift::ONE) == codon::base::C);
+  REQUIRE(first_codon_TCA.get_base_at(codon::shift::TWO) == codon::base::A);
+  REQUIRE(second_codon_GGG.get_base_at(
+        static_cast<codon::shift>(randomiser::get_int(0, 2))) ==
           codon::base::G);
 
   for (codon::Codon temp_codon : arr_codons) {
@@ -150,7 +151,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
      * (this also includes the previously filled in As)
      */
     while (counter--) {
-      codon::base first_base = temp_codon.get_base_at(1);
+      codon::base first_base = temp_codon.get_base_at(codon::shift::ZERO);
       codon::base dropped = temp_codon.squeeze_right(codon::base::G);
       REQUIRE(first_base == dropped);
 

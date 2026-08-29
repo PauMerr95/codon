@@ -40,10 +40,8 @@ void check_iterator_accession(const vec_iter& vec_locator);
 void check_iterator_accession(const vec_base_iter &vec_locator);
 void check_iterator_comparisons(const vec_iter& vec_locator);
 void check_iterator_comparisons(const vec_base_iter &vec_locator);
-void check_iterator_methods();
 void check_iterator_arithmetics(const vec_iter& vec_locator);
 void check_iterator_arithmetics(const vec_base_iter &vec_locator);
-void check_iterator_validation();
 
 // === Seq Tests ===
 

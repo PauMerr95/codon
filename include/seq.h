@@ -13,12 +13,6 @@ namespace codon {
 
 // Enum to describe a base within a Codon,
 // read from left to right
-enum shift {
-  ZERO,
-  ONE,
-  TWO,
-  MAX_SHIFT,
-};
 
 //Pre-Increment for codon::shift Enum - wraps around
 inline shift& operator++(shift& sh){
@@ -271,7 +265,7 @@ class Seq {
     codon::shift _shift;
 
     codon::base unwrap() const {
-      return _codon.get_base_at(static_cast<int>(_shift) + 1);
+      return _codon.get_base_at(_shift);
     }
     codon::base operator*() const {
       return this->unwrap();

@@ -6,6 +6,13 @@
 
 namespace codon {
 
+enum shift {
+  ZERO,
+  ONE,
+  TWO,
+  MAX_SHIFT,
+};
+
 enum base : std::uint8_t { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
 enum class Orientation : bool { FiveToThree, ThreeToFive };
 enum marker : unsigned int {
@@ -52,7 +59,7 @@ class Codon {
   int get_bases_len() const;
   char get_bases_encoded() const;
   std::string get_bases_str() const;
-  base get_base_at(int location) const;
+  base get_base_at(shift shift=ZERO) const;
 
   void insert_right(base base);
   void insert_left(base base);
