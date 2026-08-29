@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -9,9 +11,48 @@
 
 namespace codon {
 
+// Enum to describe a base within a Codon,
+// read from left to right
+enum shift {
+  ZERO,
+  ONE,
+  TWO,
+  MAX_SHIFT,
+};
+
+//Pre-Increment for codon::shift Enum - wraps around
+inline shift& operator++(shift& sh){
+  sh = static_cast<shift>(sh + 1);
+  if (sh >= MAX_SHIFT) {
+    sh = shift::ZERO;
+  }
+  return sh;
+}
+//Post-Increment for codon::shift Enum - wraps around
+inline shift operator++(shift& sh, int){ 
+  shift tmp = sh;
+  ++sh;
+  return tmp;
+}
+//Pre-Decrement for codon::shift Enum - wraps around
+inline shift& operator--(shift& sh){ 
+  switch (sh) {
+    case ZERO: sh = TWO; break;
+    default:   sh = static_cast<shift>(sh - 1);
+  }
+  return sh;
+}
+//Post-Decrement for codon::shift Enum - wraps around
+inline shift operator--(shift& sh, int){ 
+  shift tmp = sh;
+  --sh;
+  return tmp;
+}
+
 enum OutputFormat : std::int8_t { as_DNA, as_RNA, as_PROT, as_CDN };
 
 struct locator {
+//INFO: Going to be deprecated.
   int shift;
   std::size_t index;
 
@@ -54,6 +95,8 @@ struct locator {
 };
 
 class Seq {
+  //TODO: Change this class so that we always guarantee that seq[0] and seq[N] contain valid elements (unless empty)
+  //this way all the checking for first and last idx can be removed
   std::vector<codon::Codon> seq;
 
   void hm_handleMemoryAndError(codon::Codon insert);
@@ -119,6 +162,7 @@ class Seq {
   codon::Seq subseq(codon::locator locator_start,
                     codon::locator locator_end) const;
 
+  // TODO: Change this to return a new Seq and add and inplace version.
   void left_shift(std::size_t upto_loc = 0);
   void right_shift(std::size_t upto_loc = 0);
 
@@ -150,7 +194,12 @@ class Seq {
   std::vector<std::bitset<8>> get_seq_bin() const;
   codon::Codon get_codon_at(const codon::locator& locator, int size_cut = 3,
                             bool overflow = false) const;
+
+  //TODO:: Deprecate trulen features when size == codon.len can be guaranteed.
+
+  // Returns the size of the underlying vector storing the sequence
   std::size_t get_seq_len() const;
+  // Returns the amount of stored codons/basepairs depending on the arg provided
   std::size_t get_seq_trulen(std::string_view how = "codons") const;
 
   std::size_t get_first_idx() const;
@@ -159,6 +208,170 @@ class Seq {
   codon::locator get_last_loc() const;
 
   bool is_locator_valid(codon::locator locator) const;
+
+
+  // Iterator class for iterating over Codons in a Seq
+  class iterator{
+    codon::Codon* _ptr;
+
+    public:
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = codon::Codon;
+    using difference_type = std::ptrdiff_t;
+    using pointer = codon::Codon*;
+    using reference = codon::Codon&;
+
+    explicit iterator(codon::Codon* ptr): _ptr{ptr}{}
+
+    reference operator*() const {return *_ptr;}
+    pointer operator->() const {return _ptr;}
+
+    iterator& operator++() { ++_ptr; return *this;}
+    iterator operator++(int) {
+      iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    bool operator==(const iterator& other) const {
+      return _ptr == other._ptr;
+    }
+    bool operator!=(const iterator& other) const {
+      return !(*this == other);
+    }
+
+    iterator& operator+=(difference_type n) {
+      _ptr += n; return *this;
+    }
+    iterator& operator-=(difference_type n) {
+      _ptr -= n; return *this;
+    }
+    iterator operator-(difference_type n) const {
+      return iterator(_ptr - n);
+    }
+    iterator operator+(difference_type n) const {
+      return iterator(_ptr + n);
+    }
+    difference_type operator-(const iterator& other) const {
+      return _ptr - other._ptr;
+    }
+    reference operator[](difference_type n) const {
+      return _ptr[n];
+    }
+  };
+
+  struct ref_base_wrapper {
+    codon::Codon& _codon;
+    codon::shift _shift;
+  };
+  struct ptr_base_wrapper {
+    codon::Codon* _codon;
+    codon::shift _shift;
+  };
+
+  // Iterator class for iterating over Bases in a Seq
+  class base_iterator{
+    codon::Codon* _ptr;
+    codon::shift _shift{codon::shift::ZERO};
+
+    public:
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = codon::Codon;
+    using difference_type = std::ptrdiff_t;
+    using pointer = ptr_base_wrapper;
+    using reference = ref_base_wrapper;
+
+    explicit base_iterator(codon::Codon* ptr, codon::shift shift): _ptr{ptr}, _shift{shift} {}
+
+    reference operator*() {return {*_ptr, _shift};}
+    pointer operator->() {return {_ptr, _shift};}
+
+    base_iterator& operator++() {
+      if (++_shift == shift::ZERO) {
+        ++_ptr;
+      }
+      return *this;
+    }
+
+    base_iterator operator++(int) {
+      base_iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+    base_iterator& operator--() {
+      if (_shift-- == shift::ZERO) {
+        --_ptr;
+      }
+      return *this;
+    }
+
+    base_iterator operator--(int) {
+      base_iterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+
+    bool operator==(const base_iterator& other) const {
+      return (_ptr == other._ptr && _shift == other._shift);
+    }
+    bool operator!=(const base_iterator& other) const {
+      return !(*this == other);
+    }
+
+    base_iterator& operator+=(difference_type n) {
+      int remainder = n % MAX_SHIFT;
+      _ptr += (n / MAX_SHIFT);
+      while (remainder--) ++(*this);
+      return *this;
+    }
+    base_iterator& operator-=(difference_type n) {
+      int remainder = n % MAX_SHIFT;
+      _ptr -= (n / MAX_SHIFT);
+      while (remainder--) --(*this);
+      return *this;
+    }
+    base_iterator operator-(difference_type n) const {
+      auto tmp = *this;
+      int remainder = n % MAX_SHIFT;
+      tmp -= (n / MAX_SHIFT);
+      while (remainder--) --tmp;
+      return tmp;
+    }
+    base_iterator operator+(difference_type n) const {
+      auto tmp = *this;
+      int remainder = n % MAX_SHIFT;
+      tmp += (n / MAX_SHIFT);
+      while (remainder--) ++tmp;
+      return tmp;
+    }
+    difference_type operator-(const base_iterator& other) const {
+      return _ptr - other._ptr + _shift - other._shift;
+    }
+    reference operator[](difference_type n) const {
+      auto tmp = *this + n;
+      return {*tmp._ptr, tmp._shift};
+    }
+  };
+
+  // returns a codon iterator aimed at the first element
+  iterator begin() {
+    return iterator(seq.data());
+  }
+  // returns a codon iterator aimed past the last element
+  iterator end() {
+    return iterator(seq.data() + seq.size());
+  }
+  // returns a base iterator aimed at the first element
+  base_iterator base_begin() {
+    return base_iterator(seq.data(), shift::ZERO);
+  }
+  // returns a base iterator aimed past the last element
+  base_iterator base_end() {
+    if (seq.back().is_full()) {
+      return base_iterator(seq.data() + seq.size(), shift::ZERO);
+    }
+    return base_iterator(&seq.back(), static_cast<shift>(seq.back().get_bases_len()));
+  }
 };
 
 }  // namespace codon

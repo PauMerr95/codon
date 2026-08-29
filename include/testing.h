@@ -27,6 +27,26 @@ void check_locator_methods();
 void check_locator_arithmetics(const std::vector<codon::locator> &vec_locator);
 void check_locator_validation();
 
+// === Iterator Tests ===
+
+Result iterator_test();
+Result base_iterator_test();
+using vec_iter = std::vector<codon::Seq::iterator>;
+using vec_base_iter = std::vector<codon::Seq::base_iterator>;
+
+vec_iter create_iterators();
+vec_base_iter create_base_iterators();
+void check_iterator_accession(const vec_iter& vec_locator);
+void check_iterator_accession(const vec_base_iter &vec_locator);
+void check_iterator_comparisons(const vec_iter& vec_locator);
+void check_iterator_comparisons(const vec_base_iter &vec_locator);
+void check_iterator_methods();
+void check_iterator_arithmetics(const vec_iter& vec_locator);
+void check_iterator_arithmetics(const vec_base_iter &vec_locator);
+void check_iterator_validation();
+
+// === Seq Tests ===
+
 Result seq_test();
 int get_random(int low, int high);
 std::vector<codon::Seq> seq_build(

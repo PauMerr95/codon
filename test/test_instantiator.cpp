@@ -1,5 +1,3 @@
-#include <plog/Log.h>
-
 #include <catch2/catch_test_macros.hpp>
 
 #include "testing.h"
@@ -9,6 +7,12 @@
 TEST_CASE("codon", "[codon]") {
   SECTION("testing codon.cpp") {
     REQUIRE(test::codon_test() == test::Result::Pass);
+  }
+}
+
+TEST_CASE("iterators", "[seq]") {
+  SECTION("testing seq.cpp - iterators") {
+    REQUIRE(test::iterator_test() == test::Result::Pass);
   }
 }
 
