@@ -289,7 +289,7 @@ void test::check_insertions_bases(std::vector<codon::Seq> &vec_seq,
 
 void test::check_insertion_base(codon::Seq &seq, codon::base base,
                                 codon::locator loc) {
-  PLOGD << "Inserting '" << codon::base_to_str(base) << "' into {" << loc.index
+  PLOGD << "Inserting '" << codon::base_to_char(base) << "' into {" << loc.index
         << ", " << loc.shift << "}.";
 
   std::size_t bp_init{seq.get_seq_trulen("bp")};

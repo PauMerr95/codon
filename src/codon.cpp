@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-char codon::base_to_str(const codon::base& base) {
+char codon::base_to_char(const codon::base& base) {
   switch (base) {
     case codon::base::A:
       return 'A';

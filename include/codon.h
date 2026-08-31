@@ -36,7 +36,7 @@ enum mask : unsigned int {
   l_half = 0b11'11'00'00,
 };
 
-char base_to_str(const base& base);
+char base_to_char(const base& base);
 
 class Codon {
   std::uint8_t bases{0};
