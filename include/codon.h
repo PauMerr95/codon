@@ -61,11 +61,12 @@ class Codon {
   std::string get_bases_str() const;
   base get_base_at(shift shift=ZERO) const;
 
+  void replace(base base, shift shift=ZERO);
   void insert_right(base base);
   void insert_left(base base);
   base squeeze_right(base base);
   base squeeze_left(base base);
-  base pop(int loc = 0);
+  base pop(shift loc = MAX_SHIFT);
 
   codon::Codon reverse() const;
   void reverse_inplace();

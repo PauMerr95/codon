@@ -124,7 +124,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
     REQUIRE_FALSE(temp_codon.is_complement());
     REQUIRE(temp_codon == original_codon);
 
-    codon::base dropped = temp_codon.pop(1);
+    codon::base dropped = temp_codon.pop(codon::ZERO);
     if (original_codon.get_bases_len() == 1) {
       std::string goal_removed_str{"VOID"};
       REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
@@ -192,6 +192,22 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
         REQUIRE(0 == 1);
     }
   }
+
+  // Verify .replace method
+  codon::Codon one_base{"G"};
+  codon::Codon two_bases{"AT"};
+  codon::Codon three_bases{"CAC"};
+
+  one_base.replace(codon::C);
+  REQUIRE(one_base.get_bases_str() == "C");
+  REQUIRE_THROWS(one_base.replace(codon::A, codon::ONE));
+  REQUIRE_THROWS(one_base.replace(codon::A, codon::TWO));
+  two_bases.replace(codon::A, codon::ONE);
+  REQUIRE(two_bases.get_bases_str() == "AA");
+  REQUIRE_THROWS(two_bases.replace(codon::T, codon::TWO));
+  three_bases.replace(codon::G, codon::ZERO);
+  three_bases.replace(codon::G, codon::TWO);
+  REQUIRE(three_bases.get_bases_str() == "GAG");
 }
 
 void test::check_reversal(std::vector<codon::Codon> codons) {

@@ -320,6 +320,26 @@ void codon::Codon::set_orientation(codon::Orientation orientation) {
     }
   }
 }
+
+void codon::Codon::replace(codon::base base, codon::shift shift) {
+  int len = this->get_bases_len();
+  if (static_cast<int>(shift) >= len)
+    throw std::invalid_argument(
+        "Invalid shift specified for replace operation is out of bounds");
+  int distance = (len - 1) - static_cast<int>(shift);
+  unsigned int mask_base = base;
+  unsigned int mask_del  = codon::base::T;
+  while (distance--) {
+    mask_base <<= 2;
+    mask_del  <<= 2;
+  }
+  unsigned int bases = this->bases;
+  bases &= ~mask_del;
+  bases |= mask_base;
+  this->bases = static_cast<std::uint8_t>(bases);
+}
+
+
 void codon::Codon::insert_right(codon::base base) {
   /* argument becomes new position get_bases_len()+1
    * contains no check if already full -> that has to be done before calling the
@@ -404,15 +424,14 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
   return dropped_base;
 }
 
-codon::base codon::Codon::pop(int loc) {
-  /* removes the base to the furthest right by default
-   */
+// Removes and returns the base specified,
+// default param = right-most base
+codon::base codon::Codon::pop(codon::shift shift) {
   int original_len{this->get_bases_len()};
-  if (loc == 0 || loc > original_len) loc = original_len;
-
-  int offset = (original_len - loc) * 2;
-  // early / faster exit
-  if (offset == 0) {
+  int sh_int = static_cast<int>(shift);
+  // 0 1 2 sh_int
+  // 1 2 3 len
+  if (shift == codon::MAX_SHIFT || sh_int + 1 >= original_len) {
     codon::base popped_base =
         static_cast<codon::base>(this->bases & codon::base::T);
     if (original_len == 1) {
@@ -423,7 +442,8 @@ codon::base codon::Codon::pop(int loc) {
     return popped_base;
   }
 
-  std::uint8_t mask_pop = static_cast<std::uint8_t>(T << offset);
+  unsigned int offset = (original_len - sh_int - 1) * 2;
+  unsigned int mask_pop = static_cast<unsigned int>(T) << offset;
   codon::base popped_base =
       static_cast<codon::base>((this->bases & mask_pop) >> offset);
 
