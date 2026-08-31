@@ -90,13 +90,27 @@ Since codons are stored in one byte it also sometimes makes sense to use an enco
 ## Constructor
 Codons can be constructed in various ways, see below
 
-| Construct from  | Use case                                                |
-| --------------- |:--------------------------------------------------------|
-| std::string_view | The standard use case, will also accept and convert c-style string literals and std::string   |
-| char      | Reserved for encoded characters, Passing 'A' will not result in the corresponding codon. Use a string literal "A" instead if that is what you want.     |
-| const Codon* const   | will copy an existing Codon passed by const pointer to const     |
-| const Codon&   | will copy an existing Codon passed by const reference    |
-| Codon&&   | will move an existing Codon     |
+| Construct from    | Use case                                          |
+| ----------------  |:--------------------------------------------------|
+| std::string_view  | The standard use case                             |
+| char              | Reserved for encoded characters                   |
+| codon::base       | Creating a single base codon from an enum         |
+| const Codon* const| will copy an existing Codon passed via pointer    |
+| const Codon&      | will copy an existing Codon passed via reference  |
+| Codon&&           | will move an existing Codon                       |
+
+> !! The constructer from characters is reserved for encoded symbols, use the base enum for single base codons:
+```c++
+  codon::Codon not_what_you_think1{'A'};    // AAG
+  codon::Codon not_what_you_think2{'G'};    // AGA
+  codon::Codon not_what_you_think3{'C'};    // ACA
+  codon::Codon not_what_you_think4{'T'};    // GGG
+
+  codon::Codon doing_it_right1{codon::base::A}; // A
+  codon::Codon doing_it_right2{codon::base::G}; // G
+  codon::Codon doing_it_right3{codon::base::C}; // C
+  codon::Codon doing_it_right4{codon::base::T}; // T
+```
 
 ## Enumerators
 

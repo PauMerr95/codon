@@ -1,15 +1,20 @@
 #include "codon.h"
 
+#include <format>
 #include <plog/Log.h>
 
 #include <bitset>
 #include <cstdint>
-#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
+// Helper declarations:
+
+constexpr inline bool is_valid_enc(const char& enc_char);
+
+// Explicit conversion from enum base to char
 char codon::base_to_char(const codon::base& base) {
   switch (base) {
     case codon::base::A:
@@ -23,85 +28,85 @@ char codon::base_to_char(const codon::base& base) {
   }
 }
 
+//Codon Constructor for from strings (decayed and undecayed C-Style, string, string_view)
+//Does not support wildcards. Will implicitly convert U into T.
 codon::Codon::Codon(std::string_view bases_str) {
   if (bases_str == "VOID") {
     this->bases = codon::marker::n_strand_VOID;
     return;
   }
-  if (bases_str == "SWITCH") {
-    this->bases = codon::marker::c_strand_VOID;
-    return;
-  }
   if (bases_str.length() > 3) {
     std::stringstream error_msg;
-    error_msg << "Encountered invalid char length during codon creation: '"
-              << bases_str << "'";
-    throw std::invalid_argument(error_msg.str());
+    throw std::invalid_argument(
+      std::format(
+        "Encountered invalid char length during codon creation: "
+        "'{}'",
+        bases_str));
   }
-  unsigned int generator{0};
-  generator |= static_cast<unsigned int>(codon::base::G);
-  for (int i = 0; i < bases_str.length(); i++) {
-    switch (bases_str[i]) {
+  unsigned int generator =
+    static_cast<unsigned int>(codon::base::G);
+  for (const char& b : bases_str) {
+    switch (b) {
       case 'A':
-        generator =
-            (generator << 2) | static_cast<unsigned int>(codon::base::A);
-        break;
+        (generator <<= 2)
+          |= static_cast<unsigned int>(codon::base::A); break;
       case 'G':
-        generator =
-            (generator << 2) | static_cast<unsigned int>(codon::base::G);
-        break;
+        (generator <<= 2)
+          |= static_cast<unsigned int>(codon::base::G); break;
       case 'C':
-        generator =
-            (generator << 2) | static_cast<unsigned int>(codon::base::C);
-        break;
-      case 'T':
-        generator =
-            (generator << 2) | static_cast<unsigned int>(codon::base::T);
-        break;
-      case 'U':
-        generator =
-            (generator << 2) | static_cast<unsigned int>(codon::base::T);
-        break;
+        (generator <<= 2)
+          |= static_cast<unsigned int>(codon::base::C); break;
+      case 'T': case 'U':
+        (generator <<= 2)
+          |= static_cast<unsigned int>(codon::base::T); break;
       default: {
-        std::stringstream error_msg;
-        error_msg << "Encountered invalid char during codon creation: '"
-                  << bases_str[i]
-                  << "' (Hint: This function call cannot handle wildcards)";
-        throw std::invalid_argument(error_msg.str());
+        throw std::invalid_argument(
+            std::format(
+              "Encountered invalid character during codon "
+              "creation: '{}'\n"
+              "This function call cannot handle wildcards.", b));
       }
     }
   }
   this->bases = static_cast<uint8_t>(generator);
 };
 
-codon::Codon::Codon(const base& base) {
-  this->bases = static_cast<std::uint8_t>(codon::marker::n_strand_1bp |
-                                          static_cast<unsigned int>(base));
-}
+//Codon Constructor from enum base
+codon::Codon::Codon(const base& base):
+  bases{static_cast<std::uint8_t>(
+      codon::marker::n_strand_1bp | static_cast<unsigned int>(base))} {}
 
+//Codon Constructor from encoded character
+//There are only two valid blocks in the ascii table that are used.
+//Block 1: 38 - 41 for singlet and 42 - 57 for duplets
+//Block 2: 63 - 126 for triplets
+//singlet, dubplet and triplets are converted by addition/substraction of fixed distances -34, -26 and +1;
 codon::Codon::Codon(char enc_char) {
-  if ((enc_char < 38) || (enc_char > 126) ||
-      ((enc_char > 57) && (enc_char < 63))) {
-    std::string message(
-        "Failed to generate Codon. Encountered invalid encoded character: ");
-    message.push_back(enc_char);
-    throw std::runtime_error(message);
+  if (!is_valid_enc(enc_char)) {
+    throw std::invalid_argument(
+      std::format("Failed to generate Codon from encoded character '{}'", enc_char));
   }
   if (enc_char < 42) {
-    // 39 - 41: singlet
     this->bases = static_cast<std::uint8_t>(enc_char - 34);
   } else if (enc_char < 58) {
-    // 42 - 59: duplet
     this->bases = static_cast<std::uint8_t>(enc_char - 26);
   } else {
-    // 58 - 62: Reserved for fasta Formatting (includes >, ;)
-    // 64 - 126: triplet
     this->bases = static_cast<std::uint8_t>(enc_char + 1);
   }
 }
 
+//Helper function for Codon constructor from encoded character
+constexpr inline bool is_valid_enc(const char& enc_char) {
+  bool valid_block_low{enc_char > 37 || enc_char < 58};
+  bool valid_block_high{enc_char > 62 || enc_char < 127};
+  return valid_block_low || valid_block_high;
+}
+
+//Codon Constructor from const pointer to const
 codon::Codon::Codon(const codon::Codon* const codon) : bases{codon->bases} {}
+//Codon Constructor from const reference
 codon::Codon::Codon(const codon::Codon& other) : bases{other.bases} {}
+//Codon Constructor from r-value (just copy, its just one byte mate)...
 codon::Codon::Codon(codon::Codon&& other) noexcept
     : bases{std::move(other.bases)} {}
 
