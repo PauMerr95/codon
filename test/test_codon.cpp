@@ -120,7 +120,6 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
     }
 
     codon::Codon original_codon = temp_codon;
-    std::cout << "Orientation check for " << temp_codon.get_bases_str() << "\n";
     temp_codon.set_orientation(codon::Orientation::ThreeToFive);
     REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
     REQUIRE(temp_codon.is_complement());

@@ -1,53 +1,31 @@
 #include "codon.h"
 
+#include <bitset>
+#include <cstddef>
 #include <plog/Log.h>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
 
-
-
+// It is reliant on get_bases_len() to calculate the length of the codon.
+// For void and switch codons the function aborts early return an empty string.
 std::string codon::Codon::get_bases_str() const {
-  /* This function returns the bases as string and can be used for displaying.
-   * It is reliant on get_bases_len() to calculate the length of the codon.
-   * For void and switch codons the function aborts early return an empty
-   * string.
-   */
   std::size_t len = this->get_bases_len();
 
-  if (this->is_empty())
-    return (this->bases == codon::marker::n_strand_VOID) ? "VOID" : "SWITCH";
+  if (this->is_empty()) return "VOID";
 
-  std::string codon_str{};
-  codon_str.resize(len);
-  int idx{0};
+  std::string codon_str(len, '?');
+  unsigned int codon = static_cast<unsigned int>(this->bases);
 
-  while (len) {
-    std::uint8_t extracted_bits_at_len =
-        static_cast<std::uint8_t>(T) << (len - 1) * 2 & this->bases;
-
-    // Shift into position 1 and put into switch statement:
-    switch (static_cast<std::uint8_t>(extracted_bits_at_len >> (len - 1) * 2)) {
-      case A:
-        codon_str[idx] = 'A';
-        break;
-      case G:
-        codon_str[idx] = 'G';
-        break;
-      case C:
-        codon_str[idx] = 'C';
-        break;
-      case T:
-        codon_str[idx] = 'T';
-        break;
-      default:
-        PLOGF << "Fatal error: Extracted bits could not be evaluated to A, G, "
-                 "C, T";
+  while (len--) {
+    switch (codon & codon::mask::base_1) {
+     case codon::base::A: { codon_str[len] = 'A'; break; }
+     case codon::base::G: { codon_str[len] = 'G'; break; }
+     case codon::base::C: { codon_str[len] = 'C'; break; }
+     case codon::base::T: { codon_str[len] = 'T'; break; }
     }
-    --len;
-    ++idx;
+    codon >>= 2;
   }
-
   return codon_str;
 }
 
