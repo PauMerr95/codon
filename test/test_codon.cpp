@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <string>
+#include <iostream>
 #include <vector>
 
 #include "codon.h"
@@ -13,7 +14,7 @@ test::Result test::codon_test() {
   std::vector<std::string> arr_bases_str = {
       "TCA", "GGG", "AGC", "GTA", "CAT", "TTT",    "ACT", "AAA", "VOID", "GG",
       "AA",  "TC",  "CA",  "T",   "A",   "GGA",    "ACG", "C",   "CC",   "AC",
-      "CT",  "GAC", "CGA", "CAG", "CAA", "SWITCH", "ACC", "TAA", "TTA"};
+      "CT",  "GAC", "CGA", "CAG", "CAA", "ACC", "TAA", "TTA"};
   codon::base arr_bases[4] = {codon::base::A, codon::base::G, codon::base::C,
                               codon::base::T};
 
@@ -100,29 +101,33 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
 
   for (codon::Codon temp_codon : arr_codons) {
     if (temp_codon.get_bases_len() == 0) {
+      // Edge case for VOIDs - Behaviour: no change on set_orientation, only on flip
       codon::Codon original_void = temp_codon;
       temp_codon.set_orientation(codon::Orientation::ThreeToFive);
-      REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
-      REQUIRE(temp_codon.is_complement());
+      REQUIRE(temp_codon == original_void);
       temp_codon.set_orientation(codon::Orientation::FiveToThree);
-      REQUIRE_FALSE(temp_codon.is_complement());
-      REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
-      if (original_void.is_complement()) {
-        REQUIRE(temp_codon != original_void);
+      REQUIRE(temp_codon == original_void);
+      if (!temp_codon.is_complement()) {
+        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
+        temp_codon.flip_inplace();
+        REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
       } else {
-        REQUIRE(temp_codon == original_void);
+        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
+        temp_codon.flip_inplace();
+        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
       }
       continue;
     }
 
     codon::Codon original_codon = temp_codon;
+    std::cout << "Orientation check for " << temp_codon.get_bases_str() << "\n";
     temp_codon.set_orientation(codon::Orientation::ThreeToFive);
     REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
     REQUIRE(temp_codon.is_complement());
     temp_codon.set_orientation(codon::Orientation::FiveToThree);
     REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
     REQUIRE_FALSE(temp_codon.is_complement());
-    REQUIRE(temp_codon == original_codon);
+    REQUIRE(temp_codon.get_bases_bin() == original_codon.get_bases_bin());
 
     codon::base dropped = temp_codon.pop(codon::ZERO);
     if (original_codon.get_bases_len() == 1) {

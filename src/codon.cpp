@@ -1,196 +1,11 @@
 #include "codon.h"
 
-#include <format>
 #include <plog/Log.h>
-
-#include <bitset>
 #include <cstdint>
-#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
-// Helper declarations:
 
-constexpr inline bool is_valid_enc(const char& enc_char);
-
-// Explicit conversion from enum base to char
-char codon::base_to_char(const codon::base& base) {
-  switch (base) {
-    case codon::base::A:
-      return 'A';
-    case codon::base::G:
-      return 'G';
-    case codon::base::C:
-      return 'C';
-    case codon::base::T:
-      return 'T';
-  }
-}
-
-//Codon Constructor for from strings (decayed and undecayed C-Style, string, string_view)
-//Does not support wildcards. Will implicitly convert U into T.
-codon::Codon::Codon(std::string_view bases_str) {
-  if (bases_str == "VOID") {
-    this->bases = codon::marker::n_strand_VOID;
-    return;
-  }
-  if (bases_str.length() > 3) {
-    std::stringstream error_msg;
-    throw std::invalid_argument(
-      std::format(
-        "Encountered invalid char length during codon creation: "
-        "'{}'",
-        bases_str));
-  }
-  unsigned int generator =
-    static_cast<unsigned int>(codon::base::G);
-  for (const char& b : bases_str) {
-    switch (b) {
-      case 'A':
-        (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::A); break;
-      case 'G':
-        (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::G); break;
-      case 'C':
-        (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::C); break;
-      case 'T': case 'U':
-        (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::T); break;
-      default: {
-        throw std::invalid_argument(
-            std::format(
-              "Encountered invalid character during codon "
-              "creation: '{}'\n"
-              "This function call cannot handle wildcards.", b));
-      }
-    }
-  }
-  this->bases = static_cast<uint8_t>(generator);
-};
-
-//Codon Constructor from enum base
-codon::Codon::Codon(const base& base):
-  bases{static_cast<std::uint8_t>(
-      codon::marker::n_strand_1bp | static_cast<unsigned int>(base))} {}
-
-//Codon Constructor from encoded character
-//There are only two valid blocks in the ascii table that are used.
-//Block 1: 38 - 41 for singlet and 42 - 57 for duplets
-//Block 2: 63 - 126 for triplets
-//singlet, dubplet and triplets are converted by addition/substraction of fixed distances -34, -26 and +1;
-codon::Codon::Codon(char enc_char) {
-  if (!is_valid_enc(enc_char)) {
-    throw std::invalid_argument(
-      std::format("Failed to generate Codon from encoded character '{}'", enc_char));
-  }
-  if (enc_char < 42) {
-    this->bases = static_cast<std::uint8_t>(enc_char - 34);
-  } else if (enc_char < 58) {
-    this->bases = static_cast<std::uint8_t>(enc_char - 26);
-  } else {
-    this->bases = static_cast<std::uint8_t>(enc_char + 1);
-  }
-}
-
-//Helper function for Codon constructor from encoded character
-constexpr inline bool is_valid_enc(const char& enc_char) {
-  bool valid_block_low{enc_char > 37 || enc_char < 58};
-  bool valid_block_high{enc_char > 62 || enc_char < 127};
-  return valid_block_low || valid_block_high;
-}
-
-//Codon Constructor from const pointer to const
-codon::Codon::Codon(const codon::Codon* const codon) : bases{codon->bases} {}
-//Codon Constructor from const reference
-codon::Codon::Codon(const codon::Codon& other) : bases{other.bases} {}
-//Codon Constructor from r-value (just copy, its just one byte mate)...
-codon::Codon::Codon(codon::Codon&& other) noexcept
-    : bases{std::move(other.bases)} {}
-
-codon::Codon::~Codon() {}
-
-bool codon::Codon::is_full() const { return (this->get_bases_len() == 3); }
-bool codon::Codon::is_empty() const { return (this->get_bases_len() == 0); }
-
-bool codon::Codon::is_complement() const {
-  if (this->bases == codon::marker::n_strand_VOID) return false;
-  if (this->bases == codon::marker::c_strand_VOID) return true;
-
-  switch (this->get_bases_len()) {
-    case 3: {
-      unsigned int marker_3bp{static_cast<unsigned int>(this->bases) &
-                              codon::mask::mark_3};
-      if (marker_3bp == codon::marker::c_strand_3bp) return true;
-      break;
-    }
-    case 2: {
-      unsigned int marker_2bp{
-          static_cast<unsigned int>(this->bases & codon::mask::l_half)};
-      if (marker_2bp == codon::marker::c_strand_2bp) return true;
-      break;
-    }
-    case 1: {
-      unsigned int marker_1bp =
-          static_cast<unsigned int>(this->bases & (~codon::mask::base_1));
-      if (marker_1bp == codon::marker::c_strand_1bp) return true;
-      break;
-    }
-  }
-  return false;
-}
-
-int codon::Codon::get_bases_int() const {
-  return static_cast<int>(this->bases);
-}
-
-std::bitset<8> codon::Codon::get_bases_bin() const {
-  return std::bitset<8>(this->bases);
-}
-
-/* This function returns the length of the inserted bases.
- * For void and switch codons it returns 0;
- */
-int codon::Codon::get_bases_len() const {
-  unsigned int bases_uint{static_cast<unsigned int>(this->bases)};
-
-  if (bases_uint == codon::marker::n_strand_VOID ||
-      bases_uint == codon::marker::c_strand_VOID)
-    return 0;
-
-  unsigned int marker_3bp = bases_uint & codon::mask::mark_3;
-  if (marker_3bp == codon::marker::n_strand_3bp ||
-      marker_3bp == codon::marker::c_strand_3bp)
-    return 3;
-
-  unsigned int marker_2bp =
-      bases_uint &
-      codon::mask::l_half;  // mark_2 does not account for flipped unused loc 0
-  if (marker_2bp == codon::marker::n_strand_2bp ||
-      marker_2bp == codon::marker::c_strand_2bp)
-    return 2;
-
-  return 1;
-}
-
-char codon::Codon::get_bases_encoded() const {
-  // This function readjusts the bases to a printable format
-  //! switches complements to 5->3 format!
-  std::uint8_t temporary_codon{(this->is_complement())
-                                   ? static_cast<std::uint8_t>(~this->bases)
-                                   : this->bases};
-  if (static_cast<std::uint8_t>(64) & temporary_codon) {
-    return this->bases - 1;
-  } else if (static_cast<std::uint8_t>(16) & temporary_codon) {
-    return this->bases + 26;
-  } else if (static_cast<std::uint8_t>(4) & temporary_codon) {
-    return this->bases + 34;
-  } else {
-    throw std::runtime_error("Failed to transform codon to encoded char");
-  }
-}
 
 std::string codon::Codon::get_bases_str() const {
   /* This function returns the bases as string and can be used for displaying.
@@ -267,63 +82,52 @@ codon::base codon::Codon::get_base_at(codon::shift shift) const {
   }
 }
 
+// Returns codon orientation as enum,
+// dependant on Codon::is_complement method and proper enum setup
 codon::Orientation codon::Codon::get_orientation() const {
-  return static_cast<codon::Orientation>(this->is_complement());
+  return (this->is_complement()) ? codon::Orientation::ThreeToFive : codon::Orientation::FiveToThree;
 }
 
+// Changes the marker including the prefix.
+// If the codon is already orientated, will return early.
+// VOIDs are left untouched - this method only affects markers.
+// Use Codon::flip if you want to change the bases as well.
 void codon::Codon::set_orientation(codon::Orientation orientation) {
-  switch (orientation) {
-    case codon::Orientation::FiveToThree: {
-      switch (this->get_bases_len()) {
-        case 0:
-          this->bases = codon::marker::n_strand_VOID;
-          return;
-        case 1: {
-          unsigned int bases = this->bases & codon::mask::base_1;
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::n_strand_1bp);
-          return;
-        }
-        case 2: {
-          unsigned int bases = this->bases & codon::mask::r_half;
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::n_strand_2bp);
-          return;
-        }
-        case 3: {
-          unsigned int bases = this->bases & ~(codon::mask::mark_3);
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::n_strand_3bp);
-          return;
-        }
-      }
+  if (this->get_orientation() == orientation) return;
+  if (this->bases == codon::marker::n_strand_VOID) return;
+  if (this->bases == codon::marker::c_strand_VOID) return;
+
+  unsigned int codon = static_cast<unsigned int>(this->bases);
+  unsigned int saved_bases{};
+  switch(this->get_bases_len()) {
+    case 3: {
+      saved_bases = codon & ~codon::mask::mark_3;
+      codon = ~codon;
+      codon &= codon::mask::mark_3;
+      break;
     }
-    case codon::Orientation::ThreeToFive: {
-      switch (this->get_bases_len()) {
-        case 0:
-          this->bases = codon::marker::c_strand_VOID;
-          return;
-        case 1: {
-          unsigned int bases = this->bases & codon::mask::base_1;
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::c_strand_1bp);
-          return;
-        }
-        case 2: {
-          unsigned int bases = this->bases & codon::mask::r_half;
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::c_strand_2bp);
-          return;
-        }
-        case 3: {
-          unsigned int bases = this->bases & ~(codon::mask::mark_3);
-          this->bases =
-              static_cast<std::uint8_t>(bases | codon::marker::c_strand_3bp);
-          return;
-        }
-      }
+    case 2: {
+      saved_bases = codon & codon::mask::r_half;
+      codon = ~codon;
+      codon &= codon::mask::l_half;
+      break;
     }
+    case 1: {
+      saved_bases = codon & codon::mask::base_1;
+      codon = ~codon;
+      codon &= ~codon::mask::base_1;
+      break;
+    }
+    default:
+      // std::unreachable(); Add with C++23
+      throw std::runtime_error(
+        std::format(
+          "CRITICAL: Impossible State in Codon::set_orientation()\n"
+          "Codon Base Binary = {}\nOrientation: {}",
+          this->get_bases_bin().to_string(),
+          orientation_to_strv(orientation)));
   }
+  this->bases = static_cast<std::uint8_t>(codon | saved_bases);
 }
 
 void codon::Codon::replace(codon::base base, codon::shift shift) {
@@ -509,36 +313,5 @@ codon::Codon codon::Codon::flip() const {
 }
 
 void codon::Codon::flip_inplace() {
-  switch (this->get_bases_len()) {
-    case 3: {
-      unsigned int del_marker{~static_cast<unsigned int>(codon::mask::mark_3)};
-      unsigned int marker{
-          static_cast<unsigned int>(codon::marker::n_strand_3bp)};
-      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
-      flipped_codon &= del_marker;
-      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
-      return;
-    }
-    case 2: {
-      unsigned int del_marker{static_cast<unsigned int>(codon::mask::r_half)};
-      unsigned int marker{
-          static_cast<unsigned int>(codon::marker::n_strand_2bp)};
-      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
-      flipped_codon &= del_marker;
-      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
-      return;
-    }
-    case 1: {
-      unsigned int del_marker{static_cast<unsigned int>(codon::base::T)};
-      unsigned int marker{
-          static_cast<unsigned int>(codon::marker::n_strand_1bp)};
-      unsigned int flipped_codon{~static_cast<unsigned int>(this->bases)};
-      flipped_codon &= del_marker;
-      this->bases = static_cast<std::uint8_t>(flipped_codon | marker);
-      return;
-    }
-    default: {
-      return;
-    }
-  }
-}
+  this->bases = ~this->bases;
+ }
