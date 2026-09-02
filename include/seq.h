@@ -265,7 +265,7 @@ class Seq {
     codon::shift _shift;
 
     codon::base unwrap() const {
-      return _codon.get_base_at(_shift);
+      return _codon.get_base(_shift);
     }
     codon::base operator*() const {
       return this->unwrap();

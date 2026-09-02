@@ -10,13 +10,10 @@
 // It is reliant on get_bases_len() to calculate the length of the codon.
 // For void and switch codons the function aborts early return an empty string.
 std::string codon::Codon::get_bases_str() const {
-  std::size_t len = this->get_bases_len();
-
   if (this->is_empty()) return "VOID";
-
+  std::size_t len = this->get_bases_len();
   std::string codon_str(len, '?');
   unsigned int codon = static_cast<unsigned int>(this->bases);
-
   while (len--) {
     switch (codon & codon::mask::base_1) {
      case codon::base::A: { codon_str[len] = 'A'; break; }
@@ -29,35 +26,27 @@ std::string codon::Codon::get_bases_str() const {
   return codon_str;
 }
 
-codon::base codon::Codon::get_base_at(codon::shift shift) const {
-  switch (shift) {
-    case ZERO: {
-      if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & codon::mask::base_3) >>
-                                        4);
-      else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>((this->bases & codon::mask::base_2) >>
-                                        2);
-      else if (this->get_bases_len() == 1)
-        return static_cast<codon::base>(this->bases & codon::mask::base_1);
-    }
-    case ONE: {
-      if (this->get_bases_len() == 3)
-        return static_cast<codon::base>((this->bases & codon::mask::base_2) >>
-                                        2);
-      else if (this->get_bases_len() == 2)
-        return static_cast<codon::base>(this->bases & codon::mask::base_1);
-    }
-    case TWO: {
-      return static_cast<codon::base>(this->bases & codon::mask::base_1);
-    }
-    default: {
-      std::string message =
-          "Expected shift for codon to be between 0 and 2 but received ";
-      message += (std::to_string(static_cast<int>(shift)) + ".");
-      throw std::invalid_argument(message);
-    }
+// Returns the base at the specified shift.
+// Will throw when Codon is empty or when shift exceeds available bases
+// Exception is the default value MAX_SHIFT which will automatically take the right most base
+codon::base codon::Codon::get_base(codon::shift shift) const {
+  if (this->is_empty()) throw std::out_of_range("Codon::get_base() called on empty Codon.");
+  if (shift == codon::shift::MAX_SHIFT) {
+   return static_cast<codon::base>(
+       static_cast<unsigned int>(this->bases) & codon::mask::base_1);
   }
+  unsigned int cdn = this->bases;
+  int len = this->get_bases_len();
+  if (len <= static_cast<int>(shift)) {
+    throw std::out_of_range(
+        std::format(
+          "Passed shift is out of range for Codon::get_base()\n"
+          "Codon '{}'\n"
+          "Shift: '{}'",
+          this->get_bases_str(), static_cast<int>(shift)));
+  }
+  cdn >>= 2*(this->get_bases_len() - 1 - static_cast<int>(shift));
+  return static_cast<codon::base>(cdn & codon::mask::base_1);
 }
 
 // Returns codon orientation as enum,

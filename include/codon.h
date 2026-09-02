@@ -81,7 +81,7 @@ class Codon {
   constexpr int get_bases_len() const;
   constexpr char get_bases_encoded() const;
   std::string get_bases_str() const;
-  base get_base_at(shift shift=ZERO) const;
+  base get_base(shift shift=MAX_SHIFT) const;
 
   void replace(base base, shift shift=ZERO);
   void insert_right(base base);

@@ -92,10 +92,10 @@ void test::check_creation_base(codon::base arr_bases[], int len) {
 void test::check_operations(std::vector<codon::Codon> arr_codons) {
   codon::Codon first_codon_TCA = arr_codons[0];
   codon::Codon second_codon_GGG = arr_codons[1];
-  REQUIRE(first_codon_TCA.get_base_at(codon::shift::ZERO) == codon::base::T);
-  REQUIRE(first_codon_TCA.get_base_at(codon::shift::ONE) == codon::base::C);
-  REQUIRE(first_codon_TCA.get_base_at(codon::shift::TWO) == codon::base::A);
-  REQUIRE(second_codon_GGG.get_base_at(
+  REQUIRE(first_codon_TCA.get_base(codon::shift::ZERO) == codon::base::T);
+  REQUIRE(first_codon_TCA.get_base(codon::shift::ONE) == codon::base::C);
+  REQUIRE(first_codon_TCA.get_base(codon::shift::TWO) == codon::base::A);
+  REQUIRE(second_codon_GGG.get_base(
         static_cast<codon::shift>(randomiser::get_int(0, 2))) ==
           codon::base::G);
 
@@ -155,7 +155,7 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
      * (this also includes the previously filled in As)
      */
     while (counter--) {
-      codon::base first_base = temp_codon.get_base_at(codon::shift::ZERO);
+      codon::base first_base = temp_codon.get_base(codon::shift::ZERO);
       codon::base dropped = temp_codon.squeeze_right(codon::base::G);
       REQUIRE(first_base == dropped);
 
@@ -204,14 +204,20 @@ void test::check_operations(std::vector<codon::Codon> arr_codons) {
 
   one_base.replace(codon::C);
   REQUIRE(one_base.get_bases_str() == "C");
+  REQUIRE(one_base.get_base() == codon::C);
+  REQUIRE_THROWS(one_base.get_base(codon::ONE));
+  REQUIRE_THROWS(one_base.get_base(codon::TWO));
   REQUIRE_THROWS(one_base.replace(codon::A, codon::ONE));
   REQUIRE_THROWS(one_base.replace(codon::A, codon::TWO));
   two_bases.replace(codon::A, codon::ONE);
   REQUIRE(two_bases.get_bases_str() == "AA");
+  REQUIRE(two_bases.get_base() == codon::A);
   REQUIRE_THROWS(two_bases.replace(codon::T, codon::TWO));
+  REQUIRE_THROWS(two_bases.get_base(codon::TWO));
   three_bases.replace(codon::G, codon::ZERO);
   three_bases.replace(codon::G, codon::TWO);
   REQUIRE(three_bases.get_bases_str() == "GAG");
+  REQUIRE(three_bases.get_base() == codon::G);
 }
 
 void test::check_reversal(std::vector<codon::Codon> codons) {
