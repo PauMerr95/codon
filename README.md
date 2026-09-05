@@ -4,7 +4,7 @@
 Codon is a small C++ library to store a codon in a single byte to perform fast bit-manipulation operations for high-throughput nucleotide data processing.
 
 <p align="center">
-  <img src="img/mascot.jpg"/>
+  <img src="img/mascot.jpg" width="400px"/>
 </p>
 
 Why you should use codon:
@@ -23,7 +23,7 @@ How it looks:
 ### Using the library to reverse a segment from the 10'000th to the 15'000th base
 
 ```c++
-#include <codon_lib>
+#include <codon/readwrite.h>
 
 int main() {
     codon::Fasta input = codon::load("./test/input_testing/Human mitochondrial DNA.fasta");
