@@ -10,3 +10,6 @@ include/plog
 include/indicators
 *.cfg
 *.bat
+
+test/input_testing/*
+test/output_testing/*
