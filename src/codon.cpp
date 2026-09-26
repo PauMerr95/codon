@@ -1,21 +1,20 @@
 #include "codon.h"
 
-#include <bitset>
 #include <cstddef>
+#include <format>
 #include <plog/Log.h>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 
-// It is reliant on get_bases_len() to calculate the length of the codon.
+// It is reliant on length() to calculate the length of the codon.
 // For void and switch codons the function aborts early return an empty string.
 std::string codon::Codon::get_bases_str() const {
   if (this->is_empty()) return "VOID";
-  std::size_t len = this->get_bases_len();
+  std::size_t len = this->length();
   std::string codon_str(len, '?');
-  unsigned int codon = static_cast<unsigned int>(this->bases);
+  unsigned int codon = to_uint(this->bases);
   while (len--) {
-    switch (codon & codon::mask::base_1) {
+    switch (codon & to_uint(codon::mask::base_1)) {
      case codon::base::A: { codon_str[len] = 'A'; break; }
      case codon::base::G: { codon_str[len] = 'G'; break; }
      case codon::base::C: { codon_str[len] = 'C'; break; }
@@ -33,10 +32,10 @@ codon::base codon::Codon::get_base(codon::shift shift) const {
   if (this->is_empty()) throw std::out_of_range("Codon::get_base() called on empty Codon.");
   if (shift == codon::shift::MAX_SHIFT) {
    return static_cast<codon::base>(
-       static_cast<unsigned int>(this->bases) & codon::mask::base_1);
+       to_uint(this->bases) & to_uint(codon::mask::base_1));
   }
   unsigned int cdn = this->bases;
-  int len = this->get_bases_len();
+  int len = this->length();
   if (len <= static_cast<int>(shift)) {
     throw std::out_of_range(
         std::format(
@@ -45,60 +44,12 @@ codon::base codon::Codon::get_base(codon::shift shift) const {
           "Shift: '{}'",
           this->get_bases_str(), static_cast<int>(shift)));
   }
-  cdn >>= 2*(this->get_bases_len() - 1 - static_cast<int>(shift));
-  return static_cast<codon::base>(cdn & codon::mask::base_1);
-}
-
-// Returns codon orientation as enum,
-// dependant on Codon::is_complement method and proper enum setup
-codon::Orientation codon::Codon::get_orientation() const {
-  return (this->is_complement()) ? codon::Orientation::ThreeToFive : codon::Orientation::FiveToThree;
-}
-
-// Changes the marker including the prefix.
-// If the codon is already orientated, will return early.
-// VOIDs are left untouched - this method only affects markers.
-// Use Codon::flip if you want to change the bases as well.
-void codon::Codon::set_orientation(codon::Orientation orientation) {
-  if (this->get_orientation() == orientation) return;
-  if (this->bases == codon::marker::n_strand_VOID) return;
-  if (this->bases == codon::marker::c_strand_VOID) return;
-
-  unsigned int codon = static_cast<unsigned int>(this->bases);
-  unsigned int saved_bases{};
-  switch(this->get_bases_len()) {
-    case 3: {
-      saved_bases = codon & ~codon::mask::mark_3;
-      codon = ~codon;
-      codon &= codon::mask::mark_3;
-      break;
-    }
-    case 2: {
-      saved_bases = codon & codon::mask::r_half;
-      codon = ~codon;
-      codon &= codon::mask::l_half;
-      break;
-    }
-    case 1: {
-      saved_bases = codon & codon::mask::base_1;
-      codon = ~codon;
-      codon &= ~codon::mask::base_1;
-      break;
-    }
-    default:
-      // std::unreachable(); Add with C++23
-      throw std::runtime_error(
-        std::format(
-          "CRITICAL: Impossible State in Codon::set_orientation()\n"
-          "Codon Base Binary = {}\nOrientation: {}",
-          this->get_bases_bin().to_string(),
-          orientation_to_strv(orientation)));
-  }
-  this->bases = static_cast<std::uint8_t>(codon | saved_bases);
+  cdn >>= 2*(this->length() - 1 - static_cast<int>(shift));
+  return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));
 }
 
 void codon::Codon::replace(codon::base base, codon::shift shift) {
-  int len = this->get_bases_len();
+  int len = this->length();
   if (static_cast<int>(shift) >= len)
     throw std::invalid_argument(
         "Invalid shift specified for replace operation is out of bounds");
@@ -112,106 +63,110 @@ void codon::Codon::replace(codon::base base, codon::shift shift) {
   unsigned int bases = this->bases;
   bases &= ~mask_del;
   bases |= mask_base;
-  this->bases = static_cast<std::uint8_t>(bases);
+  this->bases = to_uint8(bases);
 }
 
 
+//Inserts a base on the right side.
+//@param codon::base: base to be inserted
+//@throws runtime_error: if codon is already full
 void codon::Codon::insert_right(codon::base base) {
-  /* argument becomes new position get_bases_len()+1
-   * contains no check if already full -> that has to be done before calling the
-   * fn if your len = 3 already use squeeze_right()
-   */
-  unsigned int base_uint{static_cast<unsigned int>(base)};
+  int len = this->length();
+  if (len > 2) throw std::runtime_error(std::format(
+        "insert_right({}) used on already full codon.\n"
+        "Did you mean to use squeeze_right",
+        base_to_char(base)
+        ));
+  unsigned int base_uint{to_uint(base)};
 
-  if (this->is_empty()) {
-    unsigned int marker_loc2{
-        static_cast<unsigned int>(codon::marker::n_strand_1bp)};
-    this->bases = static_cast<std::uint8_t>(marker_loc2 | base_uint);
-  } else {
-    unsigned int codon_uint{this->bases};
-    codon_uint <<= 2;
-    this->bases = static_cast<std::uint8_t>(codon_uint | base_uint);
+  unsigned int codon = to_uint(this->bases) << 2;
+  codon |= base_uint;
+  codon &= ~to_uint(mask::marker);
+  switch (++len) {
+    case 1: this->bases =
+              to_uint8(codon | to_uint(marker::ONE));   break;
+    case 2: this->bases =
+              to_uint8(codon | to_uint(marker::TWO));   break;
+    case 3: this->bases =
+              to_uint8(codon | to_uint(marker::THREE)); break;
   }
 }
 
+//Inserts a base on the left side.
+//@param codon::base: base to be inserted
+//@throws runtime_error: if codon is already full
 void codon::Codon::insert_left(codon::base base) {
-  /* argument becomes new position 1
-   * contains no check if already full -> that has to be done before calling the
-   * fn if your len = 3 already use squeeze_left()
-   */
-  unsigned int codon_uint{this->bases};
-  unsigned int base_uint{static_cast<unsigned int>(base)};
-
-  if (this->get_bases_len() == 0) {
-    unsigned int marker_loc2{
-        static_cast<unsigned int>(codon::marker::n_strand_1bp)};
-    codon_uint = (marker_loc2 | base_uint);
-    this->bases = static_cast<std::uint8_t>(codon_uint);
-  } else if (this->get_bases_len() == 1) {
-    // remove marker
-    unsigned int marker_loc1{
-        static_cast<unsigned int>(codon::marker::n_strand_2bp)};
-    unsigned int mask_loc2{static_cast<unsigned int>(codon::mask::base_2)};
-
-    codon_uint &= ~mask_loc2;
-    base_uint <<= 2;
-    codon_uint |= (base_uint | marker_loc1);
-    this->bases = static_cast<std::uint8_t>(codon_uint);
-  } else if (this->get_bases_len() == 2) {
-    unsigned int marker_loc0{
-        static_cast<unsigned int>(codon::marker::n_strand_3bp)};
-    unsigned int mask_loc1{static_cast<unsigned int>(codon::mask::base_3)};
-
-    codon_uint &= ~mask_loc1;                 // remove marker
-    base_uint <<= 4;                          // shift base into position
-    codon_uint |= (base_uint | marker_loc0);  // combine
-    this->bases = static_cast<std::uint8_t>(codon_uint);
-  }
+  int len {this->length()};
+  if (len > 2) throw std::runtime_error(std::format(
+        "insert_left({}) used on already full codon.\n"
+        "Did you mean to use squeeze_left",
+        base_to_char(base)
+        ));
+  unsigned int codon {to_uint8(this->bases)};
+  switch (++len) {
+    case 1: {
+              this->bases =
+                to_uint8(to_uint(base) | to_uint(marker::ONE));
+              return;
+            }
+    case 2: {
+              codon &= to_uint(mask::base_1);
+              codon |= (to_uint(base) << 2);
+              this->bases =
+                to_uint8(codon | to_uint(marker::TWO));
+              return;
+            }
+    case 3: {
+              codon &= to_uint(mask::r_half);
+              codon |= (to_uint(base) << 4);
+              this->bases =
+                to_uint8(codon | to_uint(marker::THREE));
+              return;
+            }
+    }
 }
 
+//Pushes a base into the right-most slot, shifting everyting left and dropping the left-most base.
+//@param codon::base: base to be insert_left
+//@return codon::base: dropped base previously in shift::ZERO
 codon::base codon::Codon::squeeze_right(codon::base new_base) {
-  /* Pushes base into base 3, shifting everything left and returning previous
-   * base 1 contains no check if not full -> that has to be done before calling
-   * the fn if your len < 3 already use insert_left()
-   */
-  enum codon::base dropped_base =
-      static_cast<enum codon::base>((codon::mask::base_3 & this->bases) >> 4);
-  // codon::mask::base_3 == BASE 1 for triplet, shifted by 4times so it can be
-  // converted to base
-  this->bases <<= 2;
-  this->bases |= new_base;
-  this->bases &= ~(codon::mask::mark_3);
-  this->bases |= codon::marker::n_strand_3bp;
-
+  unsigned int codon{to_uint(this->bases)};
+  enum codon::base dropped_base = to_base(
+          (codon & to_uint(mask::base_3)) >> 4
+      );
+  codon <<= 2;
+  codon |= new_base;
+  codon &= ~to_uint(mask::marker);
+  this->bases = to_uint8(codon | to_uint(marker::THREE));
   return dropped_base;
 }
 
+//Pushes a base into the left-most slot, shifting everyting right and dropping the left-most base.
+//@param codon::base: base to be insert_left
+//@return codon::base: dropped base previously in shift::ZERO
 codon::base codon::Codon::squeeze_left(codon::base new_base) {
-  /* Pushes base into base 1, shifting everything left and returning previous
-   * base 3 contains no check if not full -> that has to be done before calling
-   * the fn if your len < 3 already use insert_right()
-   */
+  unsigned int codon{to_uint(this->bases)};
   enum codon::base dropped_base =
-      static_cast<codon::base>((this->bases & codon::base::T));
-  this->bases >>= 2;
-  this->bases &= codon::mask::r_half;
-  this->bases |=
-      static_cast<uint8_t>(new_base << 4) | codon::marker::n_strand_3bp;
+      to_base(codon & to_uint(mask::base_1));
+  codon >>= 2;
+  codon &= to_uint(mask::r_half);
+  codon |= to_uint(new_base) << 4;
+  this->bases = to_uint8(codon | to_uint(marker::THREE));
   return dropped_base;
 }
 
-// Removes and returns the base specified,
-// default param = right-most base
+// Removes and and returns a base
+// @param shift: which base - defaults to right-most
 codon::base codon::Codon::pop(codon::shift shift) {
-  int original_len{this->get_bases_len()};
+  int original_len{this->length()};
   int sh_int = static_cast<int>(shift);
   // 0 1 2 sh_int
   // 1 2 3 len
-  if (shift == codon::MAX_SHIFT || sh_int + 1 >= original_len) {
+  if (shift == codon::MAX_SHIFT || (sh_int + 1 >= original_len)) {
     codon::base popped_base =
-        static_cast<codon::base>(this->bases & codon::base::T);
+        to_base(to_uint(this->bases) & to_uint(mask::base_1));
     if (original_len == 1) {
-      this->bases = codon::marker::n_strand_VOID;
+      this->bases = to_uint8(marker::VOID);
     } else {
       this->bases >>= 2;
     }
@@ -219,15 +174,15 @@ codon::base codon::Codon::pop(codon::shift shift) {
   }
 
   unsigned int offset = (original_len - sh_int - 1) * 2;
-  unsigned int mask_pop = static_cast<unsigned int>(T) << offset;
+  unsigned int mask_pop = to_uint(T) << offset;
   codon::base popped_base =
-      static_cast<codon::base>((this->bases & mask_pop) >> offset);
+      to_base((to_uint(this->bases) & mask_pop) >> offset);
 
   unsigned int mask_save = codon::base::A;
   while (offset) {
     // generate mask that preserves right side
     mask_save <<= 2;
-    mask_save |= static_cast<unsigned int>(codon::base::T);
+    mask_save |= to_uint(codon::base::T);
     offset -= 2;
   }
 
@@ -239,46 +194,56 @@ codon::base codon::Codon::pop(codon::shift shift) {
   // delete and restore:
   temporary_codon &= mask_kill;  // sets the right side to 0s
   temporary_codon |= mask_save;  // restores previously saved bases
-  this->bases = static_cast<std::uint8_t>(temporary_codon);
+  this->bases = to_uint8(temporary_codon);
 
   return popped_base;
 }
 
+// Reverses and returns a copy of the codon
+// @return Codon: the reversed copy
 codon::Codon codon::Codon::reverse() const {
   codon::Codon copy(this);
   copy.reverse_inplace();
   return copy;
 }
 
+// Reverses the codon
 void codon::Codon::reverse_inplace() {
-  const int len{this->get_bases_len()};
+  const int len{this->length()};
   if (len < 2) {
     return;
   }
-
-  // 2*len - 2 = 4 with len 3 and 2 with len 2 - used so that it is applicable
-  // for both options
-  unsigned int mask_left{static_cast<unsigned int>(0b11) << (2 * len - 2)};
-  unsigned int mask_right{static_cast<unsigned int>(0b11)};
+  int shift_distance = 2*(len - 1);
+  unsigned int mask_left{to_uint(mask::base_1) << shift_distance};
+  unsigned int mask_right{to_uint(mask::base_1)};
   unsigned int left_switched{
-      (static_cast<unsigned int>(this->bases) & mask_left)};
-  left_switched >>= (2 * len - 2);
-  unsigned int right_switched{static_cast<unsigned int>(this->bases) &
+      (to_uint(this->bases) & mask_left)};
+  left_switched >>= shift_distance;
+  unsigned int right_switched{to_uint(this->bases) &
                               mask_right};
-  right_switched <<= (2 * len - 2);
+  right_switched <<= shift_distance;
   unsigned int mask_delete{~(mask_left | mask_right)};
-  unsigned int reversed{static_cast<unsigned int>(this->bases) & mask_delete};
+  unsigned int reversed{to_uint(this->bases) & mask_delete};
   reversed |= (left_switched | right_switched);
 
-  this->bases = static_cast<std::uint8_t>(reversed);
+  this->bases = to_uint8(reversed);
 }
 
+// Flips and returns a copy of the codon
+// Will preserve marker but also flip undefined areas
+// @return Codon: the flipped copy
 codon::Codon codon::Codon::flip() const {
   codon::Codon copy(this);
   copy.flip_inplace();
   return copy;
 }
 
+// Flips the codon inplace
+// Will preserve marker but also flip undefined areas
 void codon::Codon::flip_inplace() {
-  this->bases = ~this->bases;
- }
+  unsigned int marker = to_uint(this->bases)
+                      | to_uint(mask::marker);
+  unsigned int codon = ~this->bases;
+  codon = codon & ~to_uint(mask::marker);
+  this->bases = to_uint8(codon | marker);
+}

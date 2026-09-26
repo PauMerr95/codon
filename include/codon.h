@@ -8,36 +8,84 @@
 
 namespace codon {
 
+enum base : unsigned int { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
+
+template <typename T>
+constexpr inline std::uint8_t to_uint8(T x) {
+  return static_cast<std::uint8_t>(x);
+}
+template <typename T>
+constexpr inline unsigned int to_uint(T x) {
+  return static_cast<unsigned int>(x);
+}
+template <typename T>
+constexpr inline codon::base to_base(T x) {
+  return static_cast<enum base>(x);
+}
+
+constexpr std::uint8_t ENCODING_DELTA_BASE1 = 26;
+constexpr std::uint8_t ENCODING_DELTA_BASE2 = 86;
+constexpr std::uint8_t ENCODING_DELTA_BASE3 = 129;
+
+constexpr std::uint8_t ENCODED_LOW_BASE1  = 38;
+constexpr std::uint8_t ENCODED_HIGH_BASE1 = 41;
+constexpr std::uint8_t ENCODED_LOW_BASE2  = 42;
+constexpr std::uint8_t ENCODED_HIGH_BASE2 = 57;
+constexpr std::uint8_t ENCODED_LOW_BASE3  = 63;
+constexpr std::uint8_t ENCODED_HIGH_BASE3 = 126;
+
+// Enum to describe a base within a Codon,
+// read from left to right
 enum shift {
   ZERO,
   ONE,
   TWO,
   MAX_SHIFT,
 };
-enum base : std::uint8_t { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
-enum class Orientation : bool {
-  FiveToThree = false,
-  ThreeToFive = true
+
+//Pre-Increment for codon::shift Enum - wraps around
+inline shift& operator++(shift& sh){
+  sh = static_cast<shift>(sh + 1);
+  if (sh >= MAX_SHIFT) {
+    sh = shift::ZERO;
+  }
+  return sh;
+}
+//Post-Increment for codon::shift Enum - wraps around
+inline shift operator++(shift& sh, int){ 
+  shift tmp = sh;
+  ++sh;
+  return tmp;
+}
+//Pre-Decrement for codon::shift Enum - wraps around
+inline shift& operator--(shift& sh){ 
+  switch (sh) {
+    case ZERO: sh = TWO; break;
+    default:   sh = static_cast<shift>(sh - 1);
+  }
+  return sh;
+}
+//Post-Decrement for codon::shift Enum - wraps around
+inline shift operator--(shift& sh, int){ 
+  shift tmp = sh;
+  --sh;
+  return tmp;
+}
+
+enum class marker: unsigned int {
+  VOID  = 0b00'00'00'00,
+  ONE   = 0b01'00'00'00,
+  TWO   = 0b10'00'00'00,
+  THREE = 0b11'00'00'00,
 };
-enum marker : unsigned int {
-  n_strand_VOID = 0b00'00'00'00,
-  n_strand_1bp = 0b00'00'01'00,
-  n_strand_2bp = 0b00'01'00'00,
-  n_strand_3bp = 0b01'00'00'00,
-  c_strand_3bp = 0b10'00'00'00,
-  c_strand_2bp = 0b11'10'00'00,
-  c_strand_1bp = 0b11'11'10'00,
-  c_strand_VOID = 0b11'11'11'11,
-};
-enum mask : unsigned int {
+
+enum class mask: unsigned int {
   base_1 = 0b00'00'00'11,
   base_2 = 0b00'00'11'00,
-  mark_1 = 0b00'00'11'00,
   r_half = 0b00'00'11'11,
   base_3 = 0b00'11'00'00,
-  mark_2 = 0b00'11'00'00,
-  mark_3 = 0b11'00'00'00,
-  l_half = 0b11'11'00'00,
+  marker = 0b11'00'00'00,
+  l_half = 0b11'11'00'00
 };
 
 // Explicit conversion from enum base to char
@@ -54,13 +102,6 @@ constexpr char base_to_char(const base& base) {
   }
 }
 
-// Returns a string_view of "FiveToThree" or "ThreeToFive"
-// when passed an Orientation enum
-constexpr std::string_view orientation_to_strv(const Orientation& orientation) {
-  return (static_cast<bool>(orientation))
-    ? "ThreeToFive" : "FiveToThree";
-}
-
 class Codon {
   std::uint8_t bases{0};
 
@@ -74,14 +115,15 @@ class Codon {
 
   constexpr bool is_full() const;
   constexpr bool is_empty() const;
-  constexpr bool is_complement() const;
+  constexpr bool is_complement_of(const Codon& other) const;
 
   constexpr int get_bases_int() const {return static_cast<int>(bases);};
   constexpr std::bitset<8> get_bases_bin() const { return std::bitset<8>(bases);};
-  constexpr int get_bases_len() const;
+  constexpr int length() const;
   constexpr char get_bases_encoded() const;
   std::string get_bases_str() const;
   base get_base(shift shift=MAX_SHIFT) const;
+  base set_base(shift shift, base base);
 
   void replace(base base, shift shift=ZERO);
   void insert_right(base base);
@@ -92,9 +134,6 @@ class Codon {
 
   codon::Codon reverse() const;
   void reverse_inplace();
-
-  void set_orientation(codon::Orientation orientation);
-  codon::Orientation get_orientation() const;
 
   codon::Codon flip() const;
   void flip_inplace();
@@ -114,16 +153,43 @@ class Codon {
     return (this->bases != other.bases);
   }
 };
+class base_ref{
+  Codon* _codon;
+  shift _shift;
 
+  public:
+  base_ref(Codon* codon, shift s): _codon{codon}, _shift{s} {}
 
+  operator codon::base() const { return _codon->get_base(_shift);}
 
+  const base_ref& operator=(base b) const {
+    _codon->set_base(_shift, b);
+    return *this;
+  }
+  const base_ref& operator=(const base_ref& bref) const {
+    return *this = codon::base(bref);
+  }
+  friend void swap(const base_ref& a, const base_ref& b) {
+    base tmp = a;
+    a = codon::base(b);
+    b = tmp;
+  }
 
+  friend bool operator==(const base_ref& a, const base_ref& b) {
+    return codon::base(a) == codon::base(b);
+  }
+  friend auto operator<=>(const base_ref& a, const base_ref& b) {
+    return codon::base(a) <=> codon::base(b);
+  }
+  friend bool operator==(const base_ref& a, base b) {return codon::base(a) == b;}
+  friend auto operator<=>(const base_ref& a, base b) {return codon::base(a) <=> b;}
+};
 
 //Codon Constructor for from strings (decayed and undecayed C-Style, string, string_view)
 //Does not support wildcards. Will implicitly convert U into T.
 constexpr codon::Codon::Codon(std::string_view bases_str) {
   if (bases_str == "VOID") {
-    this->bases = codon::marker::n_strand_VOID;
+    this->bases = to_uint8(codon::marker::VOID);
     return;
   }
   if (bases_str.length() > 3) {
@@ -134,21 +200,21 @@ constexpr codon::Codon::Codon(std::string_view bases_str) {
         bases_str));
   }
   unsigned int generator =
-    static_cast<unsigned int>(codon::base::G);
+    to_uint(codon::base::G);
   for (const char& b : bases_str) {
     switch (b) {
       case 'A':
         (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::A); break;
+          |= to_uint(codon::base::A); break;
       case 'G':
         (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::G); break;
+          |= to_uint(codon::base::G); break;
       case 'C':
         (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::C); break;
+          |= to_uint(codon::base::C); break;
       case 'T': case 'U':
         (generator <<= 2)
-          |= static_cast<unsigned int>(codon::base::T); break;
+          |= to_uint(codon::base::T); break;
       default: {
         throw std::invalid_argument(
             std::format(
@@ -158,18 +224,17 @@ constexpr codon::Codon::Codon(std::string_view bases_str) {
       }
     }
   }
-  this->bases = static_cast<uint8_t>(generator);
+  this->bases = to_uint8(generator);
 };
 
 //Codon Constructor from enum base
 constexpr codon::Codon::Codon(const base& base):
-  bases{static_cast<std::uint8_t>(
-      codon::marker::n_strand_1bp | static_cast<unsigned int>(base))} {}
+  bases{to_uint8(to_uint(codon::marker::ONE) | base)} {}
 
 //Helper function for Codon constructor from encoded character
 constexpr bool is_valid_enc(const char& enc_char) {
-  bool valid_block_low{enc_char > 37 || enc_char < 58};
-  bool valid_block_high{enc_char > 62 || enc_char < 127};
+  bool valid_block_low {enc_char >= ENCODED_LOW_BASE1 && enc_char <= ENCODED_HIGH_BASE2};
+  bool valid_block_high{enc_char >= ENCODED_LOW_BASE3 && enc_char <= ENCODED_HIGH_BASE3};
   return valid_block_low || valid_block_high;
 }
 
@@ -183,12 +248,12 @@ constexpr Codon::Codon(char enc_char) {
     throw std::invalid_argument(
       std::format("Failed to generate Codon from encoded character '{}'", enc_char));
   }
-  if (enc_char < 42) {
-    this->bases = static_cast<std::uint8_t>(enc_char - 34);
-  } else if (enc_char < 58) {
-    this->bases = static_cast<std::uint8_t>(enc_char - 26);
+  if (enc_char <= ENCODED_HIGH_BASE1) {
+    this->bases = enc_char + ENCODING_DELTA_BASE1;
+  } else if (enc_char <= ENCODED_HIGH_BASE2) {
+    this->bases = enc_char + ENCODING_DELTA_BASE2;
   } else {
-    this->bases = static_cast<std::uint8_t>(enc_char + 1);
+    this->bases = enc_char + ENCODING_DELTA_BASE3;
   }
 }
 
@@ -201,31 +266,25 @@ constexpr Codon::Codon(codon::Codon&& other) noexcept
     : bases{std::move(other.bases)} {}
 
 constexpr bool Codon::is_full() const {
-  return (this->get_bases_len() == 3);
+  return (this->length() == 3);
 }
 constexpr bool Codon::is_empty() const {
-  return (this->get_bases_len() == 0);
+  return (this->length() == 0);
 }
 
 // Checks if the codon has a complement marker '(111)10'
 // instead of '(000)01'
-constexpr bool Codon::is_complement() const {
-  if (this->bases == codon::marker::n_strand_VOID) return false;
-  if (this->bases == codon::marker::c_strand_VOID) return true;
+constexpr bool Codon::is_complement_of(const Codon& other) const {
+  if (other.length() != this->length()) return false;
+  if (this->length() == 0) return false; 
 
-  unsigned int mask = codon::mask::mark_3;
-  unsigned int codon = static_cast<unsigned int>(this->bases);
+  unsigned int flipd_bases{~to_uint(this->bases)};
+  unsigned int other_bases{to_uint(other.bases)};
 
-  while (mask != codon::marker::c_strand_VOID) {
-    switch (codon & mask) {
-      case codon::marker::n_strand_3bp: return false;
-      case codon::marker::n_strand_2bp: return false;
-      case codon::marker::n_strand_1bp: return false;
-      case codon::marker::c_strand_3bp: return true;
-      case codon::marker::c_strand_2bp: return true;
-      case codon::marker::c_strand_1bp: return true;
-      default: (mask >>= 2) |= codon::mask::mark_3;
-    }
+  switch (this->length()) {
+    case 1: return ((flipd_bases | to_uint(mask::base_1)) == (other_bases | to_uint(mask::base_1)));
+    case 2: return ((flipd_bases | to_uint(mask::r_half)) == (other_bases | to_uint(mask::r_half)));
+    case 3: return ((flipd_bases | ~to_uint(mask::marker)) == (other_bases | ~to_uint(mask::marker)));
   }
   throw std::runtime_error(
       std::format(
@@ -237,44 +296,26 @@ constexpr bool Codon::is_complement() const {
 
 // This function returns the length of the codon.
 // Returns 0 for VOIDs
-constexpr int codon::Codon::get_bases_len() const {
-  unsigned int bases_uint{static_cast<unsigned int>(this->bases)};
-
-  if (bases_uint == codon::marker::n_strand_VOID ||
-      bases_uint == codon::marker::c_strand_VOID)
-    return 0;
-
-  unsigned int marker_3bp = bases_uint & codon::mask::mark_3;
-  if (marker_3bp == codon::marker::n_strand_3bp ||
-      marker_3bp == codon::marker::c_strand_3bp)
-    return 3;
-
-  unsigned int marker_2bp =
-      bases_uint &
-      codon::mask::l_half;  // mark_2 does not account for flipped unused loc 0
-  if (marker_2bp == codon::marker::n_strand_2bp ||
-      marker_2bp == codon::marker::c_strand_2bp)
-    return 2;
-
-  return 1;
+constexpr int codon::Codon::length() const {
+  switch (static_cast<codon::marker>(
+        to_uint(this->bases) | to_uint(codon::mask::marker))) {
+    case codon::marker::VOID:  return 0;
+    case codon::marker::ONE:   return 1;
+    case codon::marker::TWO:   return 2;
+    case codon::marker::THREE: return 3;
+  }
 }
 
 
 // This function readjusts the bases to a printable format
-// !At the moment implicitly converts to Orientation::FiveToThree;
-// TODO:: Adjust conversion and refactor this magic number garbage
 constexpr char Codon::get_bases_encoded() const {
-  unsigned int temporary_codon{(this->is_complement())
-                                   ? static_cast<unsigned int>(~this->bases)
-                                   : static_cast<unsigned int>(this->bases)};
-  if (static_cast<unsigned int>(64) & temporary_codon) {
-    return this->bases - 1;
-  } else if (static_cast<unsigned int>(16) & temporary_codon) {
-    return this->bases + 26;
-  } else if (static_cast<unsigned int>(4) & temporary_codon) {
-    return this->bases + 34;
-  } else {
-    throw std::runtime_error("Failed to transform codon to encoded char");
+  switch (this->length()) {
+    case 1: return this->bases - ENCODING_DELTA_BASE1;
+    case 2: return this->bases - ENCODING_DELTA_BASE2;
+    case 3: return this->bases - ENCODING_DELTA_BASE3;
+    default: throw std::runtime_error(std::format(
+                 "Failed to transform codon to encoded char << '{}'", this->get_bases_str())
+                   );
   }
 }
 }  // namespace codon

@@ -1,5 +1,6 @@
 #include "seq.h"
 
+#include <format>
 #include <plog/Log.h>
 
 #include <algorithm>
@@ -23,10 +24,8 @@ constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
 
 // INFO: SEQ LOGIC
 
-codon::Seq::Seq(std::string_view input, std::string_view format) {
-  // TODO: Does not account for VOIDs
-
-  if (format == "AGCT") {
+codon::Seq::Seq(std::string_view input, IO_FORMAT fmt) {
+  if (fmt == IO_FORMAT::fasta_DNA) {
     int remainder_size = input.length() % 3;
     bool all_codons_full{remainder_size == 0};
 
@@ -45,19 +44,17 @@ codon::Seq::Seq(std::string_view input, std::string_view format) {
     }
     return;
   }
-  if (format == "encoded") {
+  if (fmt == IO_FORMAT::codon_ascii) {
     this->seq.reserve(input.size());
-
     for (const char& enc_char : input) {
       this->seq.emplace_back(codon::Codon(enc_char));
     }
     return;
   }
-  std::string message(
-      "Expected 'AGCT' or 'encoded' as param 'format' for constructor. "
-      "Received: ");
-  message.append(format);
-  throw std::invalid_argument(message);
+  throw std::invalid_argument(std::format(
+      "Expected IO_FORMAT::fasta_DNA or IO_FORMAT::codon_ascii."
+      "\nReceived: {}", fmt_to_strv(fmt)
+        ));
 }
 
 codon::Seq::Seq(const std::size_t& size) { this->seq.reserve(size); }
@@ -77,10 +74,10 @@ codon::Seq::~Seq() {
         << "' going out of scope";
 }
 
-std::string codon::Seq::get_seq_str(codon::OutputFormat output_format) const {
+constexpr std::string codon::Seq::get_seq_str(codon::OutputFormat output_format) const {
   return this->get_seq_str(
-      std::pair<codon::locator, codon::locator>{this->get_first_loc(),
-                                                this->get_last_loc()},
+      std::pair<codon::iterator, codon::iterator>{this->begin(),
+                                                this->end()},
       output_format);
 }
 
@@ -101,11 +98,11 @@ std::string codon::Seq::get_seq_str(
     throw std::invalid_argument(
         "Provided invalid locator pair to get_seq_str - begin higher than end");
   }
-  int amount_first_codon{this->seq[begin.index].get_bases_len() - begin.shift +
+  int amount_first_codon{this->seq[begin.index].length() - begin.shift +
                          1};
   int amount_last_codon{end.shift};
   bool take_full_begin{begin.shift == 1};
-  bool take_full_end{end.shift == this->seq[end.index].get_bases_len()};
+  bool take_full_end{end.shift == this->seq[end.index].length()};
 
   std::stringstream ss;
   switch (output_format) {
@@ -194,11 +191,11 @@ std::string codon::Seq::get_seq_strsep(
     throw std::invalid_argument(
         "Provided invalid locator pair to get_seq_str - begin higher than end");
   }
-  int amount_first_codon{this->seq[begin.index].get_bases_len() - begin.shift +
+  int amount_first_codon{this->seq[begin.index].length() - begin.shift +
                          1};
   int amount_last_codon{end.shift};
   bool take_full_begin{begin.shift == 1};
-  bool take_full_end{end.shift == this->seq[end.index].get_bases_len()};
+  bool take_full_end{end.shift == this->seq[end.index].length()};
 
   std::stringstream ss;
   switch (output_format) {
@@ -284,7 +281,7 @@ void codon::Seq::left_shift(std::size_t upto_loc) {
    */
   std::size_t idx{this->get_last_idx()};
   std::size_t final_stop{(upto_loc) ? upto_loc : this->get_first_idx()};
-  int size_at_upto_loc = this->seq.at(final_stop).get_bases_len() < 3;
+  int size_at_upto_loc = this->seq.at(final_stop).length() < 3;
 
   // Early return for edge case during pop_base() at the final codon,
   // might otherwise result in weird stuff.
@@ -293,7 +290,7 @@ void codon::Seq::left_shift(std::size_t upto_loc) {
   // Final stop correction in case the first idx is displaced by a VOID
   while (this->seq.at(final_stop).is_full() && final_stop > 0) --final_stop;
 
-  if (this->seq.at(final_stop).get_bases_len() < 3) {
+  if (this->seq.at(final_stop).length() < 3) {
     codon::base hopping_base{this->seq[idx].pop(codon::ZERO)};
 
     if (this->seq.at(idx).get_bases_str() == "VOID") {
@@ -329,7 +326,7 @@ void codon::Seq::right_shift(std::size_t upto_loc) {
     hopping_base = this->seq[idx].squeeze_left(hopping_base);
   }
 
-  if (this->seq.at(idx).get_bases_len() < 3) {
+  if (this->seq.at(idx).length() < 3) {
     this->seq[idx].insert_left(hopping_base);
 
   } else {
@@ -366,7 +363,7 @@ void codon::Seq::reverse_inplace(const codon::locator& start,
   end.verify_shift();
 
   int left_overhang =
-      this->seq.at(start.index).get_bases_len() - start.shift + 1;
+      this->seq.at(start.index).length() - start.shift + 1;
   int right_overhang = end.shift;
   codon::Codon& left_codon = this->seq[start.index];
   codon::Codon& right_codon = this->seq[end.index];
@@ -443,7 +440,7 @@ void codon::Seq::flip_inplace(codon::locator start, codon::locator end) {
   end.verify_shift();
   std::stringstream ss;
 
-  int len_end{this->seq[end.index].get_bases_len()};
+  int len_end{this->seq[end.index].length()};
   bool flip_start{(start.shift == 1) ? true : false};
   bool flip_end{(end.shift == len_end) ? true : false};
   ss << "Flipping sequence from {" << start.index << ", " << start.shift
@@ -455,7 +452,7 @@ void codon::Seq::flip_inplace(codon::locator start, codon::locator end) {
   // left side
   if (!flip_start) {
     codon::Codon& start_codon{this->seq[start.index]};
-    int amount_flip{start_codon.get_bases_len() - start.shift + 1};
+    int amount_flip{start_codon.length() - start.shift + 1};
     codon::Codon temp("VOID");
     while (amount_flip--) {
       temp.insert_right(start_codon.pop());
@@ -483,7 +480,7 @@ void codon::Seq::flip_inplace(codon::locator start, codon::locator end) {
 }
 
 void codon::Seq::insert_base(codon::base base, codon::locator locator) {
-  if (this->seq.at(locator.index).get_bases_len() < 3) {
+  if (this->seq.at(locator.index).length() < 3) {
     // incase locator.index is already an incomplete codon
     switch (locator.shift) {
       case 1: {
@@ -491,7 +488,7 @@ void codon::Seq::insert_base(codon::base base, codon::locator locator) {
         break;
       }
       case 2: {
-        if (this->seq[locator.index].get_bases_len() == 2) {
+        if (this->seq[locator.index].length() == 2) {
           codon::base temp =
             this->seq[locator.index].pop(codon::ONE);
           this->seq[locator.index].insert_right(base);
@@ -532,7 +529,7 @@ void codon::Seq::insert_base(codon::base base, codon::locator locator) {
   ++locator.index;
 
   while (locator.index <= this->get_last_idx()) {
-    if (this->seq[locator.index].get_bases_len() == 3)
+    if (this->seq[locator.index].length() == 3)
       hopping_base = this->seq[locator.index].squeeze_left(hopping_base);
     else {
       this->seq[locator.index].insert_left(hopping_base);
@@ -554,8 +551,8 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
    * codon(s) when locator.shift > 0, will split codon if VOID is provided
    */
   hm_handleMemoryAndError(codon_insert, locator);
-  int size_original = this->seq[locator.index].get_bases_len();
-  int size_insert = codon_insert.get_bases_len();
+  int size_original = this->seq[locator.index].length();
+  int size_insert = codon_insert.length();
 
   // early exit for edge-case: insert can fit in location
   if (size_original + size_insert <= 3) {
@@ -588,7 +585,7 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
   } else {
     // STEP 1 REARRANGE AND COMBINE
     int amount_expelled =
-        this->seq[locator.index].get_bases_len() - locator.shift + 1;
+        this->seq[locator.index].length() - locator.shift + 1;
     codon::Codon expelled = Codon("VOID");
     while (amount_expelled--) {
       expelled.insert_left(this->seq[locator.index].pop());
@@ -596,10 +593,10 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
 
     // fill up original locator.index codon
     while (!this->seq[locator.index].is_full()) {
-      if (codon_insert.get_bases_len() > 0)
+      if (codon_insert.length() > 0)
         this->seq[locator.index]
           .insert_right(codon_insert.pop(codon::ZERO));
-      else if (expelled.get_bases_len() > 0)
+      else if (expelled.length() > 0)
         codon_insert.insert_right(expelled.pop(codon::ZERO));
       else {
         if (locator.index < this->get_last_idx()) {
@@ -609,7 +606,7 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
         }
       }
     }
-    while (expelled.get_bases_len() > 0)
+    while (expelled.length() > 0)
       codon_insert.insert_right(expelled.pop(codon::ZERO));
   }
 
@@ -621,11 +618,11 @@ void codon::Seq::insert_codon(codon::Codon codon_insert,
                                                locator.index + 1};
     this->seq.insert(it_seq, std::move(codon_insert));
 
-    while (this->seq[locator.index + 1].get_bases_len() < 3 &&
+    while (this->seq[locator.index + 1].length() < 3 &&
            (locator.index + 1 < this->get_last_idx())) {
       this->left_shift(locator.index + 1);
     }
-    while (this->seq[locator.index].get_bases_len() < 3 &&
+    while (this->seq[locator.index].length() < 3 &&
            (locator.index < this->get_last_idx())) {
       this->left_shift(locator.index);
     }
@@ -724,28 +721,28 @@ codon::Codon codon::Seq::get_codon_at(const codon::locator& locator,
   }
 
   if (size_cut <= 0 ||
-      this->seq.at(locator.index).get_bases_len() < locator.shift) {
+      this->seq.at(locator.index).length() < locator.shift) {
     return codon::Codon("VOID");
   } else {
     codon::Codon codon_copy{this->seq.at(locator.index)};
     for (int i{1}; i < (locator.shift); ++i) {
       codon_copy.pop(codon::ZERO);
     }
-    if (codon_copy.get_bases_len() >= size_cut) {
-      while (codon_copy.get_bases_len() > size_cut) {
+    if (codon_copy.length() >= size_cut) {
+      while (codon_copy.length() > size_cut) {
         codon_copy.pop();
       }
       return codon_copy;
-    } else if (overflow && codon_copy.get_bases_len() < size_cut &&
+    } else if (overflow && codon_copy.length() < size_cut &&
                locator.index < this->get_last_idx()) {
-      for (int i{1}; codon_copy.get_bases_len() < size_cut; i++) {
+      for (int i{1}; codon_copy.length() < size_cut; i++) {
         if (locator.index + i > this->get_last_idx()) {
           PLOGW << "Exhausted range of sequence while trying to complete "
                    "specified size_cut of get_codon_at()";
           break;
         }
         codon::Codon next_codon_copy{this->seq.at(locator.index + i)};
-        int amount_needed{size_cut - codon_copy.get_bases_len()};
+        int amount_needed{size_cut - codon_copy.length()};
         while (amount_needed-- && !next_codon_copy.is_empty()) {
           codon_copy.insert_right(next_codon_copy.pop(codon::ZERO));
         }
@@ -778,7 +775,7 @@ std::size_t codon::Seq::get_seq_trulen(std::string_view how) const {
     std::size_t bases{0};
     std::for_each(this->seq.begin(), this->seq.end(),
                   [&](const codon::Codon& curr_codon) {
-                    bases += curr_codon.get_bases_len();
+                    bases += curr_codon.length();
                   });
     return bases;
   } else {
@@ -791,7 +788,7 @@ std::size_t codon::Seq::get_seq_trulen(std::string_view how) const {
 std::size_t codon::Seq::get_first_idx() const {
   std::size_t idx_fwd = 0;
   std::size_t seq_size{this->seq.size()};
-  while (idx_fwd < seq_size && !this->seq.at(idx_fwd).get_bases_len()) {
+  while (idx_fwd < seq_size && !this->seq.at(idx_fwd).length()) {
     ++idx_fwd;
   }
   return idx_fwd;
@@ -799,7 +796,7 @@ std::size_t codon::Seq::get_first_idx() const {
 std::size_t codon::Seq::get_last_idx() const {
   if (this->seq.empty()) return 0;
   std::size_t idx_rev = this->seq.size() - 1;
-  while (idx_rev && !(this->seq.at(idx_rev).get_bases_len())) {
+  while (idx_rev && !(this->seq.at(idx_rev).length())) {
     --idx_rev;
   }
   return idx_rev;
@@ -852,7 +849,7 @@ codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
     return popped_codon;
   }
 
-  int original_len = this->seq.at(locator.index).get_bases_len();
+  int original_len = this->seq.at(locator.index).length();
   int overflow = (locator.shift - 1) + (size_cut - original_len);
   if (overflow < 0) overflow = 0;
   int cut_main = size_cut - overflow;
@@ -881,8 +878,8 @@ codon::Codon codon::Seq::pop_codon(codon::locator locator, int size_cut) {
   }
 
   // Filling in the created gaps by shifting the codons
-  int size_main = this->seq[locator.index].get_bases_len();
-  int size_adj = this->seq[locator.index + 1].get_bases_len();
+  int size_main = this->seq[locator.index].length();
+  int size_adj = this->seq[locator.index + 1].length();
   while (size_adj < 3 && (locator.index + 1 < this->get_last_idx())) {
     this->left_shift(locator.index + 1);
     ++size_adj;
@@ -933,7 +930,7 @@ codon::Seq codon::Seq::pop_seq(codon::locator locator_start,
   // shorten aneals
   bool remove_whole_start{false};
   bool remove_whole_end{false};
-  int bases_loc_start{this->seq.at(locator_start.index).get_bases_len()};
+  int bases_loc_start{this->seq.at(locator_start.index).length()};
 
   if (locator_start.shift == 1) {
     remove_whole_start = true;
@@ -944,7 +941,7 @@ codon::Seq codon::Seq::pop_seq(codon::locator locator_start,
     }
   }
 
-  if (locator_end.shift >= this->seq.at(locator_end.index).get_bases_len()) {
+  if (locator_end.shift >= this->seq.at(locator_end.index).length()) {
     remove_whole_end = true;
   } else {
     int amount_expelled_3term{locator_end.shift};
@@ -961,11 +958,11 @@ codon::Seq codon::Seq::pop_seq(codon::locator locator_start,
 
   // fill gaps at anneal
   while (locator_start.index + 1 < this->get_last_idx() &&
-         this->seq.at(locator_start.index + 1).get_bases_len() < 3) {
+         this->seq.at(locator_start.index + 1).length() < 3) {
     this->left_shift(locator_start.index + 1);
   }
   while (locator_start.index < this->get_last_idx() &&
-         this->seq.at(locator_start.index).get_bases_len() < 3) {
+         this->seq.at(locator_start.index).length() < 3) {
     this->left_shift(locator_start.index);
   }
 
@@ -1001,7 +998,7 @@ codon::Seq codon::Seq::subseq(codon::locator locator_start,
 
   int amount_expelled_back =
       subseq.get_codon_at(codon::locator(subseq.get_last_idx(), 1))
-          .get_bases_len() -
+          .length() -
       locator_end.shift;
   while (amount_expelled_back--) {
     subseq.pop_base(subseq.get_last_loc());
@@ -1023,7 +1020,7 @@ codon::locator codon::Seq::get_last_loc() const {
         "Used .get_last_loc() on uninitialized/empty seq.");
   }
   std::size_t idx{this->get_last_idx()};
-  int shift{this->seq[idx].get_bases_len()};
+  int shift{this->seq[idx].length()};
 
   return codon::locator(idx, ((shift) ? shift : 1));
 }
@@ -1177,7 +1174,7 @@ codon::Codon codon::Seq::hm_inseq_handleLeftAnneal(codon::Seq& insert,
   codon::Codon second_anneal("VOID");
 
   int amount_expelled =
-      this->seq[locator.index].get_bases_len() - locator.shift + 1;
+      this->seq[locator.index].length() - locator.shift + 1;
   while (amount_expelled--) {
     second_anneal.insert_left(this->seq[locator.index].pop());
   }
@@ -1238,7 +1235,7 @@ void codon::Seq::hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
   std::size_t first_insert{insert.get_first_idx()};
   std::size_t last_insert{insert.get_last_idx()};
 
-  std::stack<codon::Codon> temp;
+  std::stack<codon::Codon> temp{};
   for (int i = 0; i < size_term_3; i++) {
     // TODO: change to emplace and check performance change
     temp.push(this->seq.back());
@@ -1258,7 +1255,7 @@ void codon::Seq::hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
     this->seq.emplace_back(std::move(temp.top()));
     temp.pop();
   }
-  if (second_anneal.get_bases_len()) {
+  if (second_anneal.length()) {
     this->insert_codon(second_anneal, codon::locator(idx_anneal, 1));
   }
 }
@@ -1295,7 +1292,7 @@ void codon::Seq::hm_handleMemoryAndError(codon::Codon insert,
   if (insert.is_empty()) {
     throw std::invalid_argument("Tried to insert an empty Codon.");
   }
-  if (locator.shift > this->seq[locator.index].get_bases_len()) {
+  if (locator.shift > this->seq[locator.index].length()) {
     throw std::invalid_argument(
         "Shift for insert location is larger than lenght of bases at site. "
         "Consider "
@@ -1316,7 +1313,7 @@ void codon::Seq::hm_handleMemoryAndError(codon::Seq insert,
   if (!insert.get_seq_trulen()) {
     throw std::invalid_argument("Tried to insert an empty Sequence.");
   }
-  if (locator.shift > this->seq[locator.index].get_bases_len()) {
+  if (locator.shift > this->seq[locator.index].length()) {
     throw std::invalid_argument(
         "Shift for insert location is larger than lenght of bases at site. "
         "Consider "
