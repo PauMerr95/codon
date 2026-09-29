@@ -1,19 +1,102 @@
 #pragma once
-#include <unordered_map>
-
-#include "codon.h"
+#include <array>
+#include <string>
 
 namespace codon {
-extern std::unordered_map<codon::Codon, std::string> translate_w;
-extern std::unordered_map<codon::Codon, char> translate;
-extern std::unordered_map<codon::Codon, std::string> transcribe;
-}  // namespace codon
 
-namespace std {
-template <>
-struct hash<codon::Codon> {
-  size_t operator()(const codon::Codon& codon) const noexcept {
-    return std::hash<int>{}(codon.get_bases_int());
-  }
-};
-}  // namespace std
+  struct Transmuter {
+    std::string dna;
+    std::string rna;
+    std::string prot_w;
+    char prot;
+  };
+
+  inline constexpr std::array<Transmuter, 85> _transmute_arr{{
+    {"VOID","VOID",  "-", '-'},
+    {  "A",   "A",   "-", '-'},
+    {  "G",   "G",   "-", '-'},
+    {  "C",   "C",   "-", '-'},
+    {  "T",   "T",   "-", '-'},
+    { "AA",  "AA",   "-", '-'},
+    { "AG",  "AG",   "-", '-'},
+    { "AC",  "AC",   "-", '-'},
+    { "AT",  "AT",   "-", '-'},
+    { "GA",  "GA",   "-", '-'},
+    { "GG",  "GG",   "-", '-'},
+    { "GC",  "GC",   "-", '-'},
+    { "GT",  "GT",   "-", '-'},
+    { "CA",  "CA",   "-", '-'},
+    { "CG",  "CG",   "-", '-'},
+    { "CC",  "CC",   "-", '-'},
+    { "CT",  "CT",   "-", '-'},
+    { "TA",  "TA",   "-", '-'},
+    { "TG",  "TG",   "-", '-'},
+    { "TC",  "TC",   "-", '-'},
+    { "TT",  "TT",   "-", '-'},
+    { "AAA", "AAA", "Lys", 'K'},
+    { "AAG", "AAG", "Lys", 'K'},
+    { "AAC", "AAC", "Asn", 'N'},
+    { "AAT", "AAT", "Asn", 'N'},
+    { "AGA", "AGA", "Arg", 'R'},
+    { "AGG", "AGG", "Arg", 'R'},
+    { "AGC", "AGC", "Ser", 'S'},
+    { "AGT", "AGT", "Ser", 'S'},
+    { "ACA", "ACA", "Thr", 'T'},
+    { "ACG", "ACG", "Thr", 'T'},
+    { "ACC", "ACC", "Thr", 'T'},
+    { "ACT", "ACT", "Thr", 'T'},
+    { "ATA", "ATA", "Ile", 'I'},
+    { "ATG", "ATG", "Met", 'M'},
+    { "ATC", "ATC", "Ile", 'I'},
+    { "ATT", "ATT", "Ile", 'I'},
+    { "GAA", "GAA", "Glu", 'E'},
+    { "GAG", "GAG", "Glu", 'E'},
+    { "GAC", "GAC", "Asp", 'D'},
+    { "GAT", "GAT", "Asp", 'D'},
+    { "GGA", "GGA", "Gly", 'G'},
+    { "GGG", "GGG", "Gly", 'G'},
+    { "GGC", "GGC", "Gly", 'G'},
+    { "GGT", "GGT", "Gly", 'G'},
+    { "GCA", "GCA", "Ala", 'A'},
+    { "GCG", "GCG", "Ala", 'A'},
+    { "GCC", "GCC", "Ala", 'A'},
+    { "GCT", "GCT", "Ala", 'A'},
+    { "GTA", "GTA", "Val", 'V'},
+    { "GTG", "GTG", "Val", 'V'},
+    { "GTC", "GTC", "Val", 'V'},
+    { "GTT", "GTT", "Val", 'V'},
+    { "CAA", "CAA", "Gln", 'Q'},
+    { "CAG", "CAG", "Gln", 'Q'},
+    { "CAC", "CAC", "His", 'H'},
+    { "CAT", "CAT", "His", 'H'},
+    { "CGA", "CGA", "Arg", 'R'},
+    { "CGG", "CGG", "Arg", 'R'},
+    { "CGC", "CGC", "Arg", 'R'},
+    { "CGT", "CGT", "Arg", 'R'},
+    { "CCA", "CCA", "Pro", 'P'},
+    { "CCG", "CCG", "Pro", 'P'},
+    { "CCC", "CCC", "Pro", 'P'},
+    { "CCT", "CCT", "Pro", 'P'},
+    { "CTA", "CTA", "Leu", 'L'},
+    { "CTG", "CTG", "Leu", 'L'},
+    { "CTC", "CTC", "Leu", 'L'},
+    { "CTT", "CTT", "Leu", 'L'},
+    { "TAA", "TAA", "Ter", 'X'},
+    { "TAG", "TAG", "Ter", 'X'},
+    { "TAC", "TAC", "Tyr", 'Y'},
+    { "TAT", "TAT", "Tyr", 'Y'},
+    { "TGA", "TGA", "Ter", 'X'},
+    { "TGG", "TGG", "Trp", 'W'},
+    { "TGC", "TGC", "Cys", 'C'},
+    { "TGT", "TGT", "Cys", 'C'},
+    { "TCA", "TCA", "Ser", 'S'},
+    { "TCG", "TCG", "Ser", 'S'},
+    { "TCC", "TCC", "Ser", 'S'},
+    { "TCT", "TCT", "Ser", 'S'},
+    { "TTA", "TTA", "Leu", 'L'},
+    { "TTG", "TTG", "Leu", 'L'},
+    { "TTC", "TTC", "Phe", 'F'},
+    { "TTT", "TTT", "Phe", 'F'},
+  }};
+}// namespace codon
+

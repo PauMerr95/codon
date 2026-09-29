@@ -1,9 +1,12 @@
 #pragma once
+
+#include "transmute.h"
 #include <bitset>
+#include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <stdexcept>
 #include <format>
 
 namespace codon {
@@ -33,6 +36,26 @@ constexpr std::uint8_t ENCODED_LOW_BASE2  = 42;
 constexpr std::uint8_t ENCODED_HIGH_BASE2 = 57;
 constexpr std::uint8_t ENCODED_LOW_BASE3  = 63;
 constexpr std::uint8_t ENCODED_HIGH_BASE3 = 126;
+
+enum IO_FORMAT {
+  fna_DNA,
+  fna_RNA,
+  fna_PROT,
+  cdn_ASCII,
+  cdn_NUM,
+  cdn_BIN
+};
+
+constexpr std::string_view fmt_to_strv(IO_FORMAT fmt) {
+  switch (fmt) {
+    case IO_FORMAT::fna_DNA:   return "fna_DNA";
+    case IO_FORMAT::fna_RNA:   return "fna_RNA";
+    case IO_FORMAT::fna_PROT:  return "fna_PROT";
+    case IO_FORMAT::cdn_ASCII: return "cdn_ascii";
+    case IO_FORMAT::cdn_NUM:   return "cdn_num";
+    case IO_FORMAT::cdn_BIN:   return "cdn_bin";
+  }
+}
 
 // Enum to describe a base within a Codon,
 // read from left to right
@@ -84,6 +107,7 @@ enum class mask: unsigned int {
   base_2 = 0b00'00'11'00,
   r_half = 0b00'00'11'11,
   base_3 = 0b00'11'00'00,
+  all_bs = 0b00'11'11'11,
   marker = 0b11'00'00'00,
   l_half = 0b11'11'00'00
 };
@@ -105,6 +129,9 @@ constexpr char base_to_char(const base& base) {
 class Codon {
   std::uint8_t bases{0};
 
+  constexpr Transmuter  _transmute() const;
+  constexpr std::size_t _to_idx() const;
+
  public:
   constexpr Codon(std::string_view bases_str);
   constexpr Codon(const base& base);
@@ -117,11 +144,17 @@ class Codon {
   constexpr bool is_empty() const;
   constexpr bool is_complement_of(const Codon& other) const;
 
-  constexpr int get_bases_int() const {return static_cast<int>(bases);};
-  constexpr std::bitset<8> get_bases_bin() const { return std::bitset<8>(bases);};
+  constexpr std::string to_str(IO_FORMAT fmt = fna_DNA) const;
   constexpr int length() const;
-  constexpr char get_bases_encoded() const;
-  std::string get_bases_str() const;
+
+  constexpr std::string    get_inner_as_dna()    const;
+  constexpr std::string    get_inner_as_rna()    const;
+  constexpr std::string    get_inner_as_prot_w() const;
+  constexpr char           get_inner_as_prot()   const;
+  constexpr char           get_inner_as_ascii()  const;
+  constexpr int            get_inner_as_int()    const;
+  constexpr std::bitset<8> get_inner_as_bin()    const;
+
   base get_base(shift shift=MAX_SHIFT) const;
   base set_base(shift shift, base base);
 
@@ -289,9 +322,22 @@ constexpr bool Codon::is_complement_of(const Codon& other) const {
   throw std::runtime_error(
       std::format(
         "CRITICAL: Illegal State in Codon::is_complement() reached\n"
-        "Codon Base Binary = {}", this->get_bases_bin().to_string()
+        "Codon Base Binary = {}", this->get_inner_as_bin().to_string()
         ));
   // std::unreachable(); Add with C++23
+}
+
+
+// Returns the Codon as a string with multiple format options
+constexpr std::string Codon::to_str(IO_FORMAT fmt) const {
+  switch (fmt) {
+    case cdn_ASCII: return std::string{this->get_inner_as_ascii()};
+    case cdn_NUM:;  return std::to_string(this->get_inner_as_int());
+    case cdn_BIN:   return this->get_inner_as_bin().to_string();
+    case fna_PROT:  return this->get_inner_as_prot_w();
+    case fna_RNA:   return this->get_inner_as_rna();
+    case fna_DNA:   return this->get_inner_as_dna();
+  }
 }
 
 // This function returns the length of the codon.
@@ -308,14 +354,71 @@ constexpr int codon::Codon::length() const {
 
 
 // This function readjusts the bases to a printable format
-constexpr char Codon::get_bases_encoded() const {
+constexpr char Codon::get_inner_as_ascii() const {
   switch (this->length()) {
     case 1: return this->bases - ENCODING_DELTA_BASE1;
     case 2: return this->bases - ENCODING_DELTA_BASE2;
     case 3: return this->bases - ENCODING_DELTA_BASE3;
     default: throw std::runtime_error(std::format(
-                 "Failed to transform codon to encoded char << '{}'", this->get_bases_str())
+                 "Failed to transform codon to encoded char << '{}'", this->to_str())
                    );
   }
 }
+
+constexpr int Codon::get_inner_as_int() const {
+  return static_cast<int>(this->bases);
+}
+
+constexpr std::bitset<8> Codon::get_inner_as_bin() const {
+  return std::bitset<8>(this->bases);
+}
+
+constexpr std::string Codon::get_inner_as_dna() const {
+  std::string out;
+  int len = this->length();
+  unsigned int cdn = to_uint(this->bases);
+  unsigned int mask = to_uint(mask::base_1) << to_uint(2*len);
+  while (len) {
+    unsigned int ejected = mask & cdn;
+    ejected >>= to_uint(len--*2);
+    out += base_to_char(static_cast<enum base>(ejected));
+    mask >>= 2;
+  }
+  return out;
+}
+constexpr Transmuter Codon::_transmute() const {
+  return _transmute_arr[this->_to_idx()];
+}
+
+constexpr std::string Codon::get_inner_as_rna() const {
+  return this->_transmute().dna;
+}
+constexpr std::string Codon::get_inner_as_prot_w() const {
+  return this->_transmute().prot_w;
+}
+constexpr char Codon::get_inner_as_prot() const {
+  return this->_transmute().prot;
+}
+
+constexpr std::size_t Codon::_to_idx() const {
+  int len = this->length();
+  unsigned int raw = to_uint(this->bases);
+  std::size_t idx{};
+  switch (len) {
+    case 0: break;
+    case 1: idx = (raw &  to_uint(mask::base_1)) + 1; break;
+    case 2: idx = (raw &  to_uint(mask::r_half)) + 5; break;
+    case 3: idx = (raw & ~to_uint(mask::all_bs)) + 21; break;
+    default: throw std::runtime_error(std::format(
+                   "Invalid state during codon.to_idx()."
+                   "Expected codon.length() to be 0-3 but received '{}'",
+                   len));
+  }
+  if (idx < 85) return idx;
+  throw std::runtime_error(std::format(
+        "Codon to idx translation for _transmute call failed."
+        "Expected to generate a value between 0 and 84 but got '{}'",
+        idx));
+}
+
 }  // namespace codon

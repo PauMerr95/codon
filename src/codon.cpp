@@ -1,29 +1,11 @@
 #include "codon.h"
 
-#include <cstddef>
 #include <format>
 #include <plog/Log.h>
 #include <stdexcept>
-#include <string>
 
-// It is reliant on length() to calculate the length of the codon.
-// For void and switch codons the function aborts early return an empty string.
-std::string codon::Codon::get_bases_str() const {
-  if (this->is_empty()) return "VOID";
-  std::size_t len = this->length();
-  std::string codon_str(len, '?');
-  unsigned int codon = to_uint(this->bases);
-  while (len--) {
-    switch (codon & to_uint(codon::mask::base_1)) {
-     case codon::base::A: { codon_str[len] = 'A'; break; }
-     case codon::base::G: { codon_str[len] = 'G'; break; }
-     case codon::base::C: { codon_str[len] = 'C'; break; }
-     case codon::base::T: { codon_str[len] = 'T'; break; }
-    }
-    codon >>= 2;
-  }
-  return codon_str;
-}
+using namespace codon;
+
 
 // Returns the base at the specified shift.
 // Will throw when Codon is empty or when shift exceeds available bases
