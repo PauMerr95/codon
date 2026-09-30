@@ -11,7 +11,12 @@
 
 namespace codon {
 
-enum base : unsigned int { A = 0b00, G = 0b01, C = 0b10, T = 0b11 };
+enum base : unsigned int {
+  A = 0b00,
+  G = 0b01,
+  C = 0b10,
+  T = 0b11,
+};
 
 template <typename T>
 constexpr inline std::uint8_t to_uint8(T x) {

@@ -2,9 +2,8 @@
 
 #include <cstddef>
 #include <iterator>
-#include <string>
+#include <numeric>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -12,95 +11,56 @@
 
 namespace codon {
 
-enum OutputFormat { as_DNA, as_RNA, as_PROT, as_CDN };
-enum IO_FORMAT {
-  fasta_DNA,
-  fasta_RNA,
-  fasta_PROT,
-  codon_ascii,
-  codon_bin };
-
-constexpr std::string_view fmt_to_strv(IO_FORMAT fmt) {
-  switch (fmt) {
-    case IO_FORMAT::fasta_DNA:   return "fasta_DNA";
-    case IO_FORMAT::fasta_RNA:   return "fasta_RNA";
-    case IO_FORMAT::fasta_PROT:  return "fasta_PROT";
-    case IO_FORMAT::codon_ascii: return "codon_ascii";
-    case IO_FORMAT::codon_bin:   return "codon_bin";
-  }
-}
-
-
-struct locator {
-//INFO: Going to be deprecated.
-  int shift;
-  std::size_t index;
-
-  locator(std::size_t index = 0, int shift = 1);
-
-  bool operator>(const codon::locator& other) const {
-    return (this->index > other.index ||
-            ((this->index == other.index) && (this->shift > other.shift)));
-  }
-  bool operator>=(const codon::locator& other) const {
-    return (this->index > other.index ||
-            ((this->index == other.index) && (this->shift >= other.shift)));
-  }
-  bool operator<(const codon::locator& other) const {
-    return (this->index < other.index ||
-            ((this->index == other.index) && (this->shift < other.shift)));
-  }
-  bool operator<=(const codon::locator& other) const {
-    return (this->index < other.index ||
-            ((this->index == other.index) && (this->shift <= other.shift)));
-  }
-  bool operator==(const codon::locator& other) const {
-    return ((this->index == other.index) && (this->shift == other.shift));
-  }
-  bool operator!=(const codon::locator& other) const {
-    return ((this->index != other.index) || (this->shift != other.shift));
-  }
-
-  codon::locator& operator+=(std::size_t move_r_bp);
-
-  codon::locator operator+(std::size_t move_r_bp);
-
-  codon::locator& operator-=(std::size_t move_l_bp);
-
-  codon::locator operator-(std::size_t move_l_bp);
-
-  void verify_shift() const;
-  std::size_t distance_to(const codon::locator& other) const;
-  std::string to_str() const;
-};
-
-  //TODO: Change this class so that we always guarantee that seq[0] and seq[N] contain valid elements (unless empty)
-  //this way all the checking for first and last idx can be removed
 class Seq {
   std::vector<codon::Codon> seq;
 
-  void hm_handleMemoryAndError(codon::Codon insert);
-  void hm_handleMemoryAndError(codon::Seq insert);
-  void hm_handleMemoryAndError(codon::Codon insert, codon::locator locator);
-  void hm_handleMemoryAndError(codon::Seq insert, codon::locator locator);
-
-  codon::Codon hm_inseq_handleLeftAnneal(codon::Seq& insert,
-                                         codon::locator& locator);
-  void hm_inseq_edge_insertSizeLow(codon::Seq& insert, codon::locator& locator,
-                                   codon::Codon& second_anneal);
-  void hm_inseq_bluntInsert(codon::Seq& insert);
-  void hm_inseq_edge_Insertion3Term(codon::Seq& insert,
-                                    codon::Codon& second_anneal);
-  void hm_inseq_Insertion(codon::Seq& insert, codon::locator& locator,
-                          codon::Codon& second_anneal);
-
  public:
-  Seq(std::string_view input, IO_FORMAT = fasta_DNA);
+  template<bool Const> class basic_iterator;
+  template<bool Const> class basic_base_iterator;
+  using iterator            = basic_iterator<false>;
+  using const_iterator      = basic_iterator<true>;
+  using base_iterator       = basic_base_iterator<false>;
+  using const_base_iterator = basic_base_iterator<true>;
+
+  // returns a codon iterator aimed at the first element
+  iterator begin();
+  // returns a codon iterator aimed past the last element
+  iterator end();
+  // returns a implicit const codon iterator aimed at the first element
+  const_iterator begin() const;
+  // returns an implicit const codon iterator aimed past the last element
+  const_iterator end() const;
+  // returns an explicit const codon iterator aimed at the first element
+  const_iterator cbegin() const;
+  // returns an explicit const codon iterator aimed past the last element
+  const_iterator cend() const;
+
+  // returns a base iterator aimed at the first element
+  base_iterator base_begin();
+  // returns a base iterator aimed past the last element
+  base_iterator base_end();
+  // returns an implicit const base iterator aimed at the first element
+  const_base_iterator base_begin() const;
+  // returns an implicit const base iterator aimed past the last element
+  const_base_iterator base_end() const;
+  // returns an explicit const base iterator aimed at the first element
+  const_base_iterator base_cbegin() const;
+  // returns an explicit const base iterator aimed past the last element
+  const_base_iterator base_cend() const;
+
+  //returns an range over the bases in the sequence
+  auto bases();
+  //returns an const_range over the bases in the sequence
+  auto bases() const;
+
+  //CONSTRUCTOR
+
+  Seq(std::string_view input, IO_FORMAT = fna_DNA);
   Seq(const codon::Codon& codon_copy);
   Seq(codon::Codon&& codon_move);
   Seq(const std::size_t& size);
   // copyconstructor
-  Seq(const codon::Seq* const other);
+  Seq(const codon::Seq* const other): seq{other->seq} {};
   Seq(const codon::Seq&) = default;
   // moveconstructor
   Seq(codon::Seq&&) noexcept = default;
@@ -121,71 +81,103 @@ class Seq {
   };
 
   // GETTERS
-  /*
-  constexpr std::string get_seq_str(
-      codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
-  constexpr std::string get_seq_str(
-      const std::pair<codon::locator, codon::locator>& segment,
-      codon::OutputFormat output_format = codon::OutputFormat::as_DNA) const;
-
-  constexpr std::string get_seq_strsep(
-      codon::OutputFormat output_format = codon::OutputFormat::as_DNA,
-      char sep = ' ') const;
-  constexpr std::string get_seq_strsep(
-      const std::pair<codon::locator, codon::locator>& segment,
-      codon::OutputFormat output_format = codon::OutputFormat::as_DNA,
-      char sep = ' ') const;
-
-  constexpr std::vector<std::bitset<8>> get_seq_bin() const;
-  constexpr codon::Codon get_codon_at(const codon::locator& locator, int size_cut = 3,
-                            bool overflow = false) const;
-  */
-
-  //TODO:: Deprecate trulen features when size == codon.len can be guaranteed.
 
   // Returns the size of the underlying vector storing the sequence
-  std::size_t get_seq_len() const;
-  // Returns the amount of stored codons/basepairs depending on the arg provided
-  std::size_t get_seq_trulen(std::string_view how = "codons") const;
+  // Equivalent to the amount of stored codons
+  constexpr std::size_t size() const { return this->seq.size();}
 
-  std::size_t get_first_idx() const;
-  std::size_t get_last_idx() const;
-  codon::locator get_first_loc() const;
-  codon::locator get_last_loc() const;
+  // Return a string version of the sequence with additional formating options
+  constexpr std::string to_str(IO_FORMAT fmt = fna_DNA, std::string_view dlm = "") const;
 
+  // Returns the bases stored in the sequence in O(1)
+  // Assumes that every Codon expect for the first and last Codon are full.
+  constexpr std::size_t length() const;
 
-  void insert_base(codon::base base, codon::locator locator);
-  void insert_codon(codon::Codon codon, codon::locator locator);
-  void insert_seq(codon::Seq other, codon::locator locator);
+  // Returns the bases stored in the sequence in O(n)
+  // Will also work on "gap-y" sequences
+  constexpr std::size_t trulength() const {
+    return std::accumulate(seq.begin(), seq.end(), std::size_t{0},
+        [](std::size_t acc, const codon::Codon& cdn){ return acc + cdn.length();}
+        );
+  }
+  // Insert base at the specified position
+  // Previous base and right-hand terminus is shifted right
+  void insert_base(codon::Seq::iterator it, codon::base base);
 
+  // Insert codon at the specified position
+  // Previous codon and right-hand terminus is shifted right
+  void insert_codon(codon::Seq::iterator it, codon::Codon codon);
+
+  // Insert sequence at the specified position
+  // Previous codon and right-hand terminus is shifted right
+  void insert_seq(codon::Seq::iterator it, codon::Seq other);
+
+  //Appends a base to the end of the sequence
   void push_back(codon::base base);
+
+  //Appends a codon to the end of the sequence
   void push_back(codon::Codon codon);
+
+  //Appends a sequence to the end of the sequence
   void push_back(codon::Seq seq);
 
-  codon::base pop_base(codon::locator locator);
-  codon::Codon pop_codon(codon::locator locator, int size_cut = 3);
-  codon::Seq pop_seq(codon::locator locator, std::size_t size_cut_bp);
-  codon::Seq pop_seq(codon::locator locator_start, codon::locator locator_end);
-  codon::Seq subseq(codon::locator locator_start,
-                    codon::locator locator_end) const;
+  //Removes and returns the base specified
+  codon::base pop_base(codon::Seq::iterator it);
 
-  // TODO: Change this to return a new Seq and add and inplace version.
-  void left_shift(std::size_t upto_loc = 0);
-  void right_shift(std::size_t upto_loc = 0);
+  //Removes and returns the codon specified
+  //Will throw if edge is reached.
+  codon::Codon pop_codon(codon::Seq::iterator it, int size_cut = 3);
 
-  void reverse_inplace();
-  void reverse_inplace(const codon::locator& start, const codon::locator& end);
+  //Removes and returns a subsequence specified by a start and a size of the excision
+  //Will throw if edge is reached.
+  codon::Seq pop_seq(codon::Seq::iterator it_start, std::ptrdiff_t size_cut_bp);
+
+  //Removes and returns a subsequence specified by a start and end iterator
+  codon::Seq pop_seq(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
+
+  //Copies and returns a subsequence specified by a start and a size of the excision
+  //Removes and returns a subsequence specified by a start and end iterator
+  codon::Seq subseq(codon::Seq::iterator it_start,
+                    codon::Seq::iterator it_end) const;
+
+  // Copies and returns a left-shifted variant
+  // Will be ignored if first Codon is full
+  codon::Seq lshift(std::size_t amount = 1);
+
+  // Copies and returns a right-shifted variant
+  codon::Seq rshift(std::size_t amount = 1);
+
+  // Left shift the sequence inplace
+  // Will be ignored if first Codon is full
+  void lshift_inplace(std::size_t amount = 1);
+
+  // Right shift the sequence inplace
+  void rshift_inplace(std::size_t amount = 1);
+
+  //Copies and returns a reversed variant of the sequence
   codon::Seq reverse() const;
-  codon::Seq reverse(const codon::locator& start,
-                     const codon::locator& end) const;
 
-  void flip_inplace();
-  void flip_inplace(codon::locator start, codon::locator end);
+  //Copies and returns a variant sequence with the specified range reversed
+  codon::Seq reverse(codon::Seq::iterator it_start,
+                     codon::Seq::iterator it_end) const;
+
+  //Reverses the sequence inplace
+  void reverse_inplace();
+
+  //Reverses the specified range of the sequence inplace
+  void reverse_inplace(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
+
+  //Copies and returns a flipped variant of the sequence
   codon::Seq flip() const;
-  codon::Seq flip(codon::locator start, codon::locator end) const;
 
-    bool is_locator_valid(codon::locator locator) const;
+  //Copies and returns a variant sequence with the specified range flipped
+  codon::Seq flip(codon::Seq::iterator it_start, codon::Seq::iterator it_end) const;
 
+  //Flips the sequence inplace
+  void flip_inplace();
+
+  //Flips the specified range of the sequence inplace
+  void flip_inplace(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
 
   // Iterator class for iterating over Codons in a Seq
   template <bool Const>
@@ -317,51 +309,9 @@ class Seq {
            - static_cast<difference_type>(other._shift);
     }
   };
-  using iterator            = basic_iterator<false>;
-  using const_iterator      = basic_iterator<true>;
-  using base_iterator       = basic_base_iterator<false>;
-  using const_base_iterator = basic_base_iterator<true>;
-
-  // returns a codon iterator aimed at the first element
-  iterator begin() {return iterator(seq.data());}
-  // returns a implicit const codon iterator aimed at the first element
-  const_iterator begin() const {return cbegin();}
-  // returns a codon iterator aimed past the last element
-  iterator end() {return iterator(seq.data() + seq.size());}
-  // returns an implicit const codon iterator aimed past the last element
-  const_iterator end() const {return cend();}
-  // returns an explicit const codon iterator aimed at the first element
-  const_iterator cbegin() const {return const_iterator(seq.data());}
-  // returns an explicit const codon iterator aimed past the last element
-  const_iterator cend() const {return const_iterator(seq.data() + seq.size());}
-
-  // returns a base iterator aimed at the first element
-  base_iterator base_begin() {return {seq.data(), shift::ZERO};}
-  // returns a base iterator aimed past the last element
-  base_iterator base_end() {
-    if (seq.empty() || seq.back().is_full()) {
-      return {seq.data() + seq.size(), shift::ZERO};
-    }
-    return {&seq.back(), static_cast<shift>(seq.back().length())};
-  }
-  // returns an implicit const base iterator aimed at the first element
-  const_base_iterator base_begin() const {return base_cbegin();}
-  // returns an implicit const base iterator aimed past the last element
-  const_base_iterator base_end() const{ return base_cend(); };
-  // returns an explicit const base iterator aimed at the first element
-  const_base_iterator base_cbegin() const {return {seq.data(), shift::ZERO};}
-  // returns an explicit const base iterator aimed past the last element
-  const_base_iterator base_cend() const {
-    if (seq.empty() || seq.back().is_full()) {
-      return {seq.data() + seq.size(), shift::ZERO};
-    }
-    return {&seq.back(), static_cast<shift>(seq.back().length())};
-  }
-
-  auto bases()       { return std::ranges::subrange(base_begin(), base_end());}
-  auto bases() const { return std::ranges::subrange(base_cbegin(), base_cend());}
-
 };
+
+
 static_assert(std::random_access_iterator<Seq::base_iterator>);
 static_assert(std::indirectly_writable<Seq::base_iterator, codon::base>);
 static_assert(std::sortable<Seq::base_iterator>);
@@ -370,3 +320,28 @@ static_assert(!std::indirectly_writable<Seq::const_base_iterator, codon::base>);
 static_assert(std::is_convertible_v<Seq::base_iterator, Seq::const_base_iterator>);
 static_assert(!std::is_convertible_v<Seq::const_base_iterator, Seq::base_iterator>);
 }  // namespace codon
+
+
+
+// DEFINITIONS
+constexpr std::string codon::Seq::to_str(IO_FORMAT fmt, std::string_view dlm) const {
+  int len_dml = dlm.size();
+  std::string out;
+  std::string delimiter(dlm);
+  out.reserve(this->length()*static_cast<std::size_t>(3+len_dml));
+  for (const Codon& cdn : this->seq)
+    out += (cdn.to_str(fmt) + delimiter);
+  if (len_dml > 0)
+    out.erase(out.end()-len_dml, out.end());
+  out.shrink_to_fit();
+  return out;
+}
+
+constexpr std::size_t codon::Seq::length() const {
+    const std::size_t n = seq.size();
+    if (n == 0) return 0;
+    if (n == 1) return seq.front().length();
+    return seq.front().length()
+         + seq.back().length()
+         + 3*(n - 2);
+}
