@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <queue>
 #include <stdexcept>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -406,60 +405,74 @@ codon::Codon Seq::pop_codon(codon::Seq::iterator it) {
   return popped_codon;
 }
 
-
-/*
-Seq Seq::subseq(locator locator_start,
-                              locator locator_end) const {
-  returns a copy of the subsequence specified, respecting the alignment.
-  locator_start.verify_shift();
-  locator_end.verify_shift();
-  if (locator_end < locator_start) {
-    throw std::invalid_argument(
-        "Locator_start provided to subseq() is higher than the provided "
-        "locator_end().");
-  }
-  if (!this->is_locator_valid(locator_start) ||
-      !this->is_locator_valid(locator_end)) {
-    throw std::invalid_argument(
-        "Provided invalid locator for Seq::subseq()");
-  }
-
-  Seq subseq(this->seq.at(locator_start.index));
-  int amount_expelled_front{locator_start.shift - 1};
-  while (amount_expelled_front--) {
-    subseq.pop_base(subseq.get_first_loc());
-  }
-
-  while (++locator_start.index <= locator_end.index) {
-    subseq.seq.push_back(this->seq.at(locator_start.index));
-  }
-
-  int amount_expelled_back =
-      subseq.get_codon_at(locator(subseq.get_last_idx(), 1))
-          .length() -
-      locator_end.shift;
-  while (amount_expelled_back--) {
-    subseq.pop_base(subseq.get_last_loc());
-  }
-  return subseq;
+codon::Seq Seq::pop_seq(codon::Seq::iterator it_start, std::ptrdiff_t size_cut_bp) {
+  return this->pop_seq(it_start, it_start + size_cut_bp);
+}
+codon::Seq Seq::pop_seq(codon::Seq::base_iterator bIt_start, std::ptrdiff_t size_cut_bp) {
+  return this->pop_seq(bIt_start, bIt_start + size_cut_bp);
 }
 
-locator Seq::get_first_loc() const {
-  if (this->seq.empty()) {
-    throw std::invalid_argument(
-        "Used .get_first_loc() on uninitialized/empty seq.");
-  }
-  return locator(this->get_first_idx(), 1);
+codon::Seq Seq::pop_seq(codon::Seq::iterator it_start, codon::Seq::iterator it_end) {
+  //TODO: Improve performance by making this one pass:
+  Seq popped_seq = this->subseq(it_start, it_end);
+  this->seq.erase(it_start.to_vec_const_iter(), it_end.to_vec_const_iter());
+  return popped_seq;
 }
 
-locator Seq::get_last_loc() const {
-  if (this->seq.empty()) {
-    throw std::invalid_argument(
-        "Used .get_last_loc() on uninitialized/empty seq.");
-  }
-  std::size_t idx{this->get_last_idx()};
-  int shift{this->seq[idx].length()};
+codon::Seq Seq::pop_seq(codon::Seq::base_iterator bIt_start, codon::Seq::base_iterator bIt_end) {
+  //TODO: Improve performance by making this one pass:
+  Seq popped_seq = this->subseq(bIt_start, bIt_end);
 
-  return locator(idx, ((shift) ? shift : 1));
+  Codon& cdn_start = *bIt_start.get_ptr();
+  Codon& cdn_end   = *bIt_end.get_ptr();
+
+  int delete_at_begin = cdn_start.length() - 1 - static_cast<int>(bIt_start.get_shift());
+  int delete_at_end   = static_cast<int>(bIt_end.get_shift());
+
+  while (--delete_at_begin) {cdn_start.pop(shift::MAX_SHIFT);}
+  while (--delete_at_end) {cdn_end.pop(shift::ZERO);}
+
+  auto iter_vec_right = this->seq.erase(bIt_start.to_vec_const_iter(),
+                                        bIt_end.to_vec_const_iter());
+  auto cdn_it_right = Seq::iterator(&*iter_vec_right);
+  auto cdn_it_left = cdn_it_right - 1;
+  
+  while (cdn_it_right != this->end()) {
+    while (!cdn_it_left->is_full() && !cdn_it_right->is_empty()) {
+      cdn_it_left->insert_right(
+          cdn_it_left->pop(shift::ZERO));
+    }
+    if (!cdn_it_left->is_full() && cdn_it_right->is_empty()) {
+      ++cdn_it_right;
+    } else {
+      ++cdn_it_left;
+      ++cdn_it_right;
+    }
+  }
+  this->seq.erase(std::remove_if(cdn_it_left.to_vec_iter(),
+                                 cdn_it_right.to_vec_iter(),
+                                 [](const Codon& cdn){ return cdn.is_empty(); }),
+                  this->seq.end());
+  return popped_seq;
 }
-*/
+
+codon::Seq Seq::subseq(codon::Seq::iterator it_start,
+                       codon::Seq::iterator it_end) const {
+  Seq subsequence(static_cast<std::size_t>(it_end - it_start));
+  std::ranges::for_each(it_start, it_end,
+      [&subsequence](const Codon& cdn){
+        subsequence.push_back(cdn);
+      });
+  return subsequence;
+}
+
+codon::Seq Seq::subseq(codon::Seq::const_base_iterator bIt_start,
+                       codon::Seq::const_base_iterator bIt_end) const {
+  Seq subsequence(static_cast<std::size_t>(bIt_end.get_ptr() - bIt_start.get_ptr()));
+  std::ranges::for_each(bIt_start, bIt_end,
+    [&subsequence](codon::base base) {
+      subsequence.push_back(base);
+    });
+  return subsequence;
+}
+

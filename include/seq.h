@@ -142,14 +142,19 @@ class Seq {
   //Removes and returns a subsequence specified by a start and a size of the excision
   //Will throw if edge is reached.
   codon::Seq pop_seq(codon::Seq::iterator it_start, std::ptrdiff_t size_cut_bp);
+  codon::Seq pop_seq(codon::Seq::base_iterator it_start, std::ptrdiff_t size_cut_bp);
 
   //Removes and returns a subsequence specified by a start and end iterator
   codon::Seq pop_seq(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
 
+  //Removes and returns a subsequence specified by a start and end iterator
+  codon::Seq pop_seq(codon::Seq::base_iterator bIt_start, codon::Seq::base_iterator bIt_end);
   //Copies and returns a subsequence specified by a start and a size of the excision
   //Removes and returns a subsequence specified by a start and end iterator
   codon::Seq subseq(codon::Seq::iterator it_start,
                     codon::Seq::iterator it_end) const;
+  codon::Seq subseq(codon::Seq::const_base_iterator bIt_start,
+                    codon::Seq::const_base_iterator bIt_end) const;
 
   // Copies and returns a left-shifted variant
   // Will be ignored if first Codon is full
@@ -328,6 +333,14 @@ class Seq {
     }
     codon_t* get_ptr() const { return _ptr;}
     codon::shift get_shift() const { return _shift;}
+
+
+    std::vector<codon::Codon>::iterator to_vec_iter() const {
+      return std::vector<codon::Codon>::iterator(_ptr);
+    }
+    std::vector<codon::Codon>::const_iterator to_vec_const_iter() const {
+      return std::vector<codon::Codon>::const_iterator(_ptr);
+    }
   };
 };
 
