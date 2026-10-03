@@ -133,11 +133,11 @@ class Seq {
   void push_back(codon::Seq seq);
 
   //Removes and returns the base specified
-  codon::base pop_base(codon::Seq::iterator it);
+  codon::base pop_base(codon::Seq::base_iterator it);
 
   //Removes and returns the codon specified
-  //Will throw if edge is reached.
-  codon::Codon pop_codon(codon::Seq::iterator it, int size_cut = 3);
+  codon::Codon pop_codon(codon::Seq::base_iterator it, int size_cut = 3);
+  codon::Codon pop_codon(codon::Seq::iterator it);
 
   //Removes and returns a subsequence specified by a start and a size of the excision
   //Will throw if edge is reached.
@@ -231,6 +231,13 @@ class Seq {
 
     auto operator<=>(const basic_iterator& other) const = default;
     bool operator==(const basic_iterator& other) const = default;
+
+    std::vector<codon::Codon>::iterator to_vec_iter() const {
+      return std::vector<codon::Codon>::iterator(_ptr);
+    }
+    std::vector<codon::Codon>::const_iterator to_vec_const_iter() const {
+      return std::vector<codon::Codon>::const_iterator(_ptr);
+    }
   };
 
 
