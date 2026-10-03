@@ -80,7 +80,11 @@ class Seq {
     return this->seq == other.seq;
   };
 
+
   // GETTERS
+
+  constexpr const codon::Codon& operator[](std::size_t n) const { return this->seq[n];}
+  constexpr codon::Codon& operator[](std::size_t n) { return this->seq[n];}
 
   // Returns the size of the underlying vector storing the sequence
   // Equivalent to the amount of stored codons
@@ -93,6 +97,11 @@ class Seq {
   // Assumes that every Codon expect for the first and last Codon are full.
   constexpr std::size_t length() const;
 
+  constexpr const codon::Codon& back() const { return this->seq[size() - 1];}
+  constexpr codon::Codon& back() { return this->seq[size() - 1];}
+
+  constexpr const codon::Codon& front() const { return *this->seq.data();}
+  constexpr codon::Codon& front() { return *this->seq.data();}
   // Returns the bases stored in the sequence in O(n)
   // Will also work on "gap-y" sequences
   constexpr std::size_t trulength() const {
@@ -102,15 +111,17 @@ class Seq {
   }
   // Insert base at the specified position
   // Previous base and right-hand terminus is shifted right
-  void insert_base(codon::Seq::iterator it, codon::base base);
+  void insert_base(codon::Seq::base_iterator it, codon::base base);
 
   // Insert codon at the specified position
   // Previous codon and right-hand terminus is shifted right
   void insert_codon(codon::Seq::iterator it, codon::Codon codon);
+  void insert_codon(codon::Seq::base_iterator it, codon::Codon codon);
 
   // Insert sequence at the specified position
   // Previous codon and right-hand terminus is shifted right
-  void insert_seq(codon::Seq::iterator it, codon::Seq other);
+  void insert_seq(codon::Seq::iterator it, const codon::Seq& other);
+  void insert_seq(codon::Seq::base_iterator it, const codon::Seq& other);
 
   //Appends a base to the end of the sequence
   void push_back(codon::base base);
@@ -308,6 +319,8 @@ class Seq {
            + static_cast<difference_type>(_shift)
            - static_cast<difference_type>(other._shift);
     }
+    codon_t* get_ptr() const { return _ptr;}
+    codon::shift get_shift() const { return _shift;}
   };
 };
 

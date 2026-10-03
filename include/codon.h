@@ -200,7 +200,7 @@ class base_ref{
 
   operator codon::base() const { return _codon->get_base(_shift);}
 
-  const base_ref& operator=(base b) const {
+  const base_ref& operator=(codon::base b) const {
     _codon->set_base(_shift, b);
     return *this;
   }
