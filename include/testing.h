@@ -1,32 +1,27 @@
 #pragma once
-#include <filesystem>
+// #include <filesystem>
 #include <string>
 #include <vector>
 
 #include "codon.h"
-#include "readwrite.h"
-#include "seq.h"
+// #include "readwrite.h"
+// #include "seq.h"
 
 namespace test {
 
 enum Result : bool { Pass, Fail };
 
-Result codon_test();
-void check_creation_str(std::vector<std::string> arr_bases);
-void check_creation_str(std::vector<std::string> arr_bases,
-                        std::vector<codon::Codon> &generated);
-void check_creation_base(codon::base arr_bases[], int len);
-void check_operations(std::vector<codon::Codon> arr_codons);
-void check_reversal(std::vector<codon::Codon> arr_codons);
-void check_flip(std::vector<codon::Codon> arr_codons);
+Result codon_main_test();
+Result codon_auxiliary();
+Result codon_construction();
+Result codon_getters();
+Result codon_setters();
+Result codon_operator_overloads();
+Result codon_modifiers();
+Result codon_base_ref();
 
-Result locator_test();
-std::vector<codon::locator> check_locator_creation();
-void check_locator_comparisons(const std::vector<codon::locator> &vec_locator);
-void check_locator_methods();
-void check_locator_arithmetics(const std::vector<codon::locator> &vec_locator);
-void check_locator_validation();
 
+/*
 // === Iterator Tests ===
 
 Result iterator_test();
@@ -89,5 +84,6 @@ void compare_Fasta(const codon::Fasta &single_loaded,
 void check_write_fna(const codon::Fasta &out_fna);
 void check_write_cdn(const codon::Fasta &out_cdn);
 void check_written();
+*/
 
 }  // namespace test

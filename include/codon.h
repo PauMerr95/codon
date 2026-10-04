@@ -49,6 +49,7 @@ enum IO_FORMAT {
   cdn_ASCII,
   cdn_NUM,
   cdn_BIN
+  // Add new formats to test_codon.cpp: aux_enums() test
 };
 
 constexpr std::string_view fmt_to_strv(IO_FORMAT fmt) {

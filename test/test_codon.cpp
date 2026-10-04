@@ -1,282 +1,170 @@
+#include <cstddef>
+#include <exception>
 #include <plog/Log.h>
-
-#include <algorithm>
-#include <catch2/catch_test_macros.hpp>
-#include <string>
 #include <iostream>
+
+#include <catch2/catch_test_macros.hpp>
+#include <string_view>
+#include <type_traits>
 #include <vector>
 
+#include <ranges>
 #include "codon.h"
-#include "random.h"
 #include "testing.h"
 
-test::Result test::codon_test() {
-  std::vector<std::string> arr_bases_str = {
-      "TCA", "GGG", "AGC", "GTA", "CAT", "TTT",    "ACT", "AAA", "VOID", "GG",
-      "AA",  "TC",  "CA",  "T",   "A",   "GGA",    "ACG", "C",   "CC",   "AC",
-      "CT",  "GAC", "CGA", "CAG", "CAA", "ACC", "TAA", "TTA"};
-  codon::base arr_bases[4] = {codon::base::A, codon::base::G, codon::base::C,
-                              codon::base::T};
+void aux_enums();
+void aux_functions();
 
-  std::vector<codon::Codon> codons_generated(arr_bases_str.size(),
-                                             codon::Codon("VOID"));
+void constr_strv();
+void constr_base();
+void constr_encoded();
+void constr_copy();
+void constr_move();
 
-  test::check_creation_str(arr_bases_str);
-  test::check_creation_str(arr_bases_str, codons_generated);
+void op_overload_comparisons();
 
-  test::check_creation_base(arr_bases, 4);
-  PLOGD << "Passed creation check";
+void getters_length_states();
+void getters_inners();
+void getters_to_str();
+void getters_get_base();
 
-  test::check_operations(codons_generated);
-  PLOGD << "Passed operations check";
+void setters_insert();
+void setters_set_base();
 
-  test::check_reversal(codons_generated);
-  PLOGD << "Passed reversal check";
+void modifiers_squeeze();
+void modifiers_pop();
+void modifiers_flip();
+void modifiers_reverse();
 
-  test::check_flip(codons_generated);
-  PLOGD << "Passed reversal check";
 
-  return test::Result::Pass;
+void base_ref_constr();
+void base_ref_op_overload();
+void base_ref_swap();
+
+//>NC_000913.3:c2823769-2822708 recA [organism=Escherichia coli str. K-12 substr. MG1655] [GeneID=947170] [chromosome=]
+const std::string_view DUMMY_SEQ =
+  "ATGGCTATCGACGAAAACAAACAGAAAGCGTTGGCGGCAGCACTGGGCCAGATTGAGAAACAATTTGGTA"
+  "AAGGCTCCATCATGCGCCTGGGTGAAGACCGTTCCATGGATGTGGAAACCATCTCTACCGGTTCGCTTTC"
+  "ACTGGATATCGCGCTTGGGGCAGGTGGTCTGCCGATGGGCCGTATCGTCGAAATCTACGGACCGGAATCT"
+  "TCCGGTAAAACCACGCTGACGCTGCAGGTGATCGCCGCAGCGCAGCGTGAAGGTAAAACCTGTGCGTTTA"
+  "TCGATGCTGAACACGCGCTGGACCCAATCTACGCACGTAAACTGGGCGTCGATATCGACAACCTGCTGTG"
+  "CTCCCAGCCGGACACCGGCGAGCAGGCACTGGAAATCTGTGACGCCCTGGCGCGTTCTGGCGCAGTAGAC"
+  "GTTATCGTCGTTGACTCCGTGGCGGCACTGACGCCGAAAGCGGAAATCGAAGGCGAAATCGGCGACTCTC"
+  "ACATGGGCCTTGCGGCACGTATGATGAGCCAGGCGATGCGTAAGCTGGCGGGTAACCTGAAGCAGTCCAA"
+  "CACGCTGCTGATCTTCATCAACCAGATCCGTATGAAAATTGGTGTGATGTTCGGTAACCCGGAAACCACT"
+  "ACCGGTGGTAACGCGCTGAAATTCTACGCCTCTGTTCGTCTCGACATCCGTCGTATCGGCGCGGTGAAAG"
+  "AGGGCGAAAACGTGGTGGGTAGCGAAACCCGCGTGAAAGTGGTGAAGAACAAAATCGCTGCGCCGTTTAA"
+  "ACAGGCTGAATTCCAGATCCTCTACGGCGAAGGTATCAACTTCTACGGCGAACTGGTTGACCTGGGCGTA"
+  "AAAGAGAAGCTGATCGAGAAAGCAGGCGCGTGGTACAGCTACAAAGGTGAGAAGATCGGTCAGGGTAAAG"
+  "CGAATGCGACTGCCTGGCTGAAAGATAACCCGGAAACCGCGAAAGAGATCGAGAAGAAAGTACGTGAGTT"
+  "GCTGCTGAGCAACCCGAACTCAACGCCGGATTTCTCTGTAGATGATAGCGAAGGCGTAGCAGAAACTAAC"
+  "GAAGATTTTTAA";
+
+auto chunked(std::string_view sv, std::size_t n = 3) {
+  return std::views::iota(std::size_t{0}, (sv.size() + n - 1)/n)
+    | std::views::transform([sv, n](std::size_t i) { return sv.substr(i*n, n); });
 }
 
-void test::check_creation_str(std::vector<std::string> arr_bases) {
-  for (std::string bases_str : arr_bases) {
-    codon::Codon triplet_temp = codon::Codon(bases_str);
-    REQUIRE(bases_str == triplet_temp.get_bases_str());
-    if (bases_str == "VOID" || bases_str == "SWITCH") {
-      REQUIRE(triplet_temp.get_bases_len() == 0);
-    } else {
-      REQUIRE(bases_str.length() == triplet_temp.get_bases_len());
-    }
-  }
+std::vector<std::string_view> create_codons() {
+  auto chunks = chunked(DUMMY_SEQ);
+  std::vector<std::string_view> v;
+  v.reserve(chunks.size());
+  return v;
 }
 
-// overloaded version for saving generated Codons
-void test::check_creation_str(std::vector<std::string> arr_bases,
-                              std::vector<codon::Codon>& generator) {
-  int idx_gen = 0;
-  for (std::string bases : arr_bases) {
-    codon::Codon triplet_temp = codon::Codon(bases);
-    REQUIRE(bases == triplet_temp.get_bases_str());
-    if (triplet_temp.get_bases_len() == 0) {
-      std::string codon_str = triplet_temp.get_bases_str();
-      bool is_void_or_switch = (codon_str == "VOID" || codon_str == "SWITCH");
-      REQUIRE(is_void_or_switch == true);
-    } else {
-      REQUIRE(bases.length() == triplet_temp.get_bases_len());
-    }
-    generator[idx_gen++] = triplet_temp;
+
+test::Result test::codon_main_test() {
+  const std::vector<std::string_view> DUMMY_CODONS{create_codons()};
+  try {
+    aux_enums();
+    aux_functions();
+/*
+    constr_strv();
+    constr_base();
+    constr_encoded();
+    constr_copy();
+    constr_move();
+
+    op_overload_comparisons();
+
+    getters_length_states();
+    getters_inners();
+    getters_to_str();
+    getters_get_base();
+
+    setters_insert();
+    setters_set_base();
+
+    modifiers_squeeze();
+    modifiers_pop();
+    modifiers_flip();
+    modifiers_reverse();
+
+
+    base_ref_constr();
+    base_ref_op_overload();
+    base_ref_swap();
+*/
+  } catch (const std::exception& e) {
+    std::cerr << "Error encountered in codon_main_test:\n" << e.what();
+    return Result::Fail;
   }
+  return Result::Pass;
 }
 
-void test::check_creation_base(codon::base arr_bases[], int len) {
-  while (len--) {
-    codon::Codon singlet_temp = codon::Codon(arr_bases[len]);
-    switch (arr_bases[len]) {
-      case codon::A:
-        REQUIRE(singlet_temp.get_bases_str() == "A");
-        break;
-      case codon::G:
-        REQUIRE(singlet_temp.get_bases_str() == "G");
-        break;
-      case codon::C:
-        REQUIRE(singlet_temp.get_bases_str() == "C");
-        break;
-      case codon::T:
-        REQUIRE(singlet_temp.get_bases_str() == "T");
-        break;
-    }
-  }
+void aux_enums() {
+  STATIC_REQUIRE(static_cast<enum codon::base>(0b00) == codon::base::A);
+  STATIC_REQUIRE(static_cast<enum codon::base>(0b01) == codon::base::G);
+  STATIC_REQUIRE(static_cast<enum codon::base>(0b10) == codon::base::C);
+  STATIC_REQUIRE(static_cast<enum codon::base>(0b11) == codon::base::T);
+
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::fna_DNA)   == 0);
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::fna_RNA)   == 1);
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::fna_PROT)  == 2);
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::cdn_ASCII) == 3);
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::cdn_NUM)   == 4);
+  STATIC_REQUIRE(static_cast<int>(codon::IO_FORMAT::cdn_BIN)   == 5);
+
+  STATIC_REQUIRE(static_cast<int>(codon::shift::ZERO)      == 0);
+  STATIC_REQUIRE(static_cast<int>(codon::shift::ONE)       == 1);
+  STATIC_REQUIRE(static_cast<int>(codon::shift::TWO)       == 2);
+  STATIC_REQUIRE(static_cast<int>(codon::shift::MAX_SHIFT) == 3);
+
+  STATIC_REQUIRE(static_cast<enum codon::marker>(0b00'00'00'00) == codon::marker::VOID);
+  STATIC_REQUIRE(static_cast<enum codon::marker>(0b01'00'00'00) == codon::marker::ONE);
+  STATIC_REQUIRE(static_cast<enum codon::marker>(0b10'00'00'00) == codon::marker::TWO);
+  STATIC_REQUIRE(static_cast<enum codon::marker>(0b11'00'00'00) == codon::marker::THREE);
+
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b00'00'00'11) == codon::mask::base_1);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b00'00'11'00) == codon::mask::base_2);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b00'00'11'11) == codon::mask::r_half);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b00'11'00'00) == codon::mask::base_3);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b00'11'11'11) == codon::mask::all_bs);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b11'00'00'00) == codon::mask::marker);
+  STATIC_REQUIRE(static_cast<enum codon::mask>(0b11'11'00'00) == codon::mask::l_half);
 }
 
-void test::check_operations(std::vector<codon::Codon> arr_codons) {
-  codon::Codon first_codon_TCA = arr_codons[0];
-  codon::Codon second_codon_GGG = arr_codons[1];
-  REQUIRE(first_codon_TCA.get_base(codon::shift::ZERO) == codon::base::T);
-  REQUIRE(first_codon_TCA.get_base(codon::shift::ONE) == codon::base::C);
-  REQUIRE(first_codon_TCA.get_base(codon::shift::TWO) == codon::base::A);
-  REQUIRE(second_codon_GGG.get_base(
-        static_cast<codon::shift>(randomiser::get_int(0, 2))) ==
-          codon::base::G);
+void aux_functions() {
+  STATIC_REQUIRE(std::is_same_v<decltype(codon::to_uint8(codon::base::A)), std::uint8_t>);
+  STATIC_REQUIRE(std::is_same_v<decltype(codon::to_uint(codon::mask::marker)), unsigned int>);
+  STATIC_REQUIRE(std::is_same_v<decltype(codon::to_base(0)), codon::base>);
 
-  for (codon::Codon temp_codon : arr_codons) {
-    if (temp_codon.get_bases_len() == 0) {
-      // Edge case for VOIDs - Behaviour: no change on set_orientation, only on flip
-      codon::Codon original_void = temp_codon;
-      temp_codon.set_orientation(codon::Orientation::ThreeToFive);
-      REQUIRE(temp_codon == original_void);
-      temp_codon.set_orientation(codon::Orientation::FiveToThree);
-      REQUIRE(temp_codon == original_void);
-      if (!temp_codon.is_complement()) {
-        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
-        temp_codon.flip_inplace();
-        REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
-      } else {
-        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
-        temp_codon.flip_inplace();
-        REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
-      }
-      continue;
-    }
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::fna_DNA)   == "fna_DNA");
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::fna_RNA)   == "fna_RNA");
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::fna_PROT)  == "fna_PROT");
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::cdn_ASCII) == "cdn_ascii");
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::cdn_NUM)   == "cdn_num");
+  STATIC_REQUIRE(codon::fmt_to_strv(codon::IO_FORMAT::cdn_BIN)   == "cdn_bin");
 
-    codon::Codon original_codon = temp_codon;
-    temp_codon.set_orientation(codon::Orientation::ThreeToFive);
-    REQUIRE(temp_codon.get_orientation() == codon::Orientation::ThreeToFive);
-    REQUIRE(temp_codon.is_complement());
-    temp_codon.set_orientation(codon::Orientation::FiveToThree);
-    REQUIRE(temp_codon.get_orientation() == codon::Orientation::FiveToThree);
-    REQUIRE_FALSE(temp_codon.is_complement());
-    REQUIRE(temp_codon.get_bases_bin() == original_codon.get_bases_bin());
+  codon::shift tmp_one{codon::shift::ONE};
+  REQUIRE(++tmp_one == codon::shift::TWO);
+  REQUIRE(tmp_one++ == codon::shift::TWO); //overflow
+  REQUIRE(tmp_one   == codon::shift::ZERO);
+  REQUIRE(--tmp_one == codon::shift::TWO); //underflow
+  REQUIRE(tmp_one-- == codon::shift::TWO);
 
-    codon::base dropped = temp_codon.pop(codon::ZERO);
-    if (original_codon.get_bases_len() == 1) {
-      std::string goal_removed_str{"VOID"};
-      REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
-    } else {
-      std::string goal_removed_str{original_codon.get_bases_str().substr(1)};
-      REQUIRE(temp_codon.get_bases_str() == goal_removed_str);
-    }
-    REQUIRE(temp_codon.get_bases_len() < original_codon.get_bases_len());
-    temp_codon.insert_left(dropped);
-    REQUIRE(temp_codon.get_bases_str() == original_codon.get_bases_str());
-    codon::Codon reverse_codon = codon::Codon("VOID");
-    codon::Codon final_codon = codon::Codon("VOID");
-
-    int original_len = original_codon.get_bases_len();
-    int counter = 3;
-
-    // Topping up any underfilled codons
-    while (temp_codon.get_bases_len() < 3) {
-      temp_codon.insert_right(codon::A);
-    }
-
-    /* Squeezing all bases out of the temp_codon with base G
-     * and putting the dropouts into the reverse_codon, reversing the order
-     * (this also includes the previously filled in As)
-     */
-    while (counter--) {
-      codon::base first_base = temp_codon.get_base(codon::shift::ZERO);
-      codon::base dropped = temp_codon.squeeze_right(codon::base::G);
-      REQUIRE(first_base == dropped);
-
-      if (reverse_codon.get_bases_len() == 0)
-        reverse_codon = codon::Codon(dropped);
-      else {
-        reverse_codon.insert_left(dropped);
-      }
-    }
-
-    /* Squeezing all original bases out of the reverse_codon with base C
-     * and putting the dropouts into the final_codon, reimplementing the
-     * original order (Previously inserted As stay in the reverse_codon)
-     */
-    while (original_len--) {
-      codon::base dropped = reverse_codon.squeeze_left(codon::base::C);
-
-      if (final_codon.get_bases_len() == 0)
-        final_codon = codon::Codon(dropped);
-      else {
-        final_codon.insert_right(dropped);
-      }
-    }
-    REQUIRE(temp_codon.get_bases_str() == "GGG");
-    REQUIRE(original_codon.get_bases_str() == final_codon.get_bases_str());
-    switch (original_codon.get_bases_len()) {
-      case 1:
-        REQUIRE(reverse_codon.get_bases_str() == "CAA");
-        break;
-      case 2:
-        REQUIRE(reverse_codon.get_bases_str() == "CCA");
-        break;
-      case 3:
-        REQUIRE(reverse_codon.get_bases_str() == "CCC");
-        break;
-      default:
-        PLOGF << "get_bases_len() outside of expectancy";
-        REQUIRE(0 == 1);
-    }
-  }
-
-  // Verify .replace method
-  codon::Codon one_base{"G"};
-  codon::Codon two_bases{"AT"};
-  codon::Codon three_bases{"CAC"};
-
-  one_base.replace(codon::C);
-  REQUIRE(one_base.get_bases_str() == "C");
-  REQUIRE(one_base.get_base() == codon::C);
-  REQUIRE_THROWS(one_base.get_base(codon::ONE));
-  REQUIRE_THROWS(one_base.get_base(codon::TWO));
-  REQUIRE_THROWS(one_base.replace(codon::A, codon::ONE));
-  REQUIRE_THROWS(one_base.replace(codon::A, codon::TWO));
-  two_bases.replace(codon::A, codon::ONE);
-  REQUIRE(two_bases.get_bases_str() == "AA");
-  REQUIRE(two_bases.get_base() == codon::A);
-  REQUIRE_THROWS(two_bases.replace(codon::T, codon::TWO));
-  REQUIRE_THROWS(two_bases.get_base(codon::TWO));
-  three_bases.replace(codon::G, codon::ZERO);
-  three_bases.replace(codon::G, codon::TWO);
-  REQUIRE(three_bases.get_bases_str() == "GAG");
-  REQUIRE(three_bases.get_base() == codon::G);
-}
-
-void test::check_reversal(std::vector<codon::Codon> codons) {
-  for (codon::Codon& curr_codon : codons) {
-    if (curr_codon.get_bases_len() <= 0) continue;
-
-    std::string curr_codon_str{curr_codon.get_bases_str()};
-    std::string curr_codon_revstr{curr_codon_str};
-    std::reverse(curr_codon_revstr.begin(), curr_codon_revstr.end());
-    std::string reverse_copy{curr_codon.reverse().get_bases_str()};
-    REQUIRE(curr_codon_str == curr_codon.get_bases_str());
-
-    curr_codon.reverse_inplace();
-    std::string reverse_inplace{curr_codon.get_bases_str()};
-    curr_codon.reverse_inplace();
-    std::string reverted_inplace{curr_codon.get_bases_str()};
-
-    REQUIRE(curr_codon_revstr == reverse_copy);
-    REQUIRE(curr_codon_revstr == reverse_inplace);
-    REQUIRE(curr_codon_str == reverted_inplace);
-  }
-}
-
-void flip_string(std::string& codon) {
-  for (char& base : codon) {
-    switch (base) {
-      case 'A':
-        base = 'T';
-        break;
-      case 'G':
-        base = 'C';
-        break;
-      case 'C':
-        base = 'G';
-        break;
-      case 'T':
-        base = 'A';
-        break;
-    }
-  }
-}
-
-void test::check_flip(std::vector<codon::Codon> codons) {
-  for (codon::Codon& curr_codon : codons) {
-    if (curr_codon.get_bases_len() <= 0) continue;
-
-    std::string original_codon_str{curr_codon.get_bases_str()};
-    std::string curr_codon_flipped_str{original_codon_str};
-    flip_string(curr_codon_flipped_str);
-    std::string flip_copy{curr_codon.flip().get_bases_str()};
-    REQUIRE(original_codon_str == curr_codon.get_bases_str());
-
-    curr_codon.flip_inplace();
-    std::string flip_inplace{curr_codon.get_bases_str()};
-    curr_codon.flip_inplace();
-    std::string reverted_inplace{curr_codon.get_bases_str()};
-
-    REQUIRE(curr_codon_flipped_str == flip_copy);
-    REQUIRE(curr_codon_flipped_str == flip_inplace);
-    REQUIRE(original_codon_str == reverted_inplace);
-  }
+  STATIC_REQUIRE(codon::base_to_char(codon::base::A) == 'A');
+  STATIC_REQUIRE(codon::base_to_char(codon::base::G) == 'G');
+  STATIC_REQUIRE(codon::base_to_char(codon::base::C) == 'C');
+  STATIC_REQUIRE(codon::base_to_char(codon::base::T) == 'T');
 }

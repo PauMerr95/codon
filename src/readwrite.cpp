@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "codon.h"
 #include "seq.h"
 
 // TODO: IMPROVE: Duplicate code in write_FASTA and write_CODON functions
@@ -39,7 +40,7 @@ codon::Signal h_load_handle_line(codon::Fasta& fasta, bool& extracted_name,
                                  std::string_view file_format);
 
 void h_print_to_cout(const codon::Fasta& fasta,
-                     const codon::OutputFormat& output_format);
+                     const codon::IO_FORMAT& output_format);
 
 codon::Fasta::Fasta(codon::Seq sequence, std::string name, std::string comments)
     : sequence{sequence}, name{name}, comments{comments} {}
@@ -275,7 +276,7 @@ void assign_data(std::string& line, std::vector<codon::Fasta>& output,
 }
 
 void codon::Fasta::write(const std::filesystem::path& path_out,
-                         codon::OutputFormat output_format) const {
+                         codon::IO_FORMAT output_format) const {
   if (path_out.string() == "cout") {
     h_print_to_cout(*this, output_format);
   }
@@ -294,7 +295,7 @@ void codon::Fasta::write(const std::filesystem::path& path_out,
     oss << this->comments << "\n";
   }
 
-  oss << this->sequence.get_seq_str(output_format) << "\n";
+  oss << this->sequence.to_str(output_format, " ") << "\n";
   file << oss.str();
   file.close();
 }
@@ -313,7 +314,7 @@ void h_loadmulti_handle_line(std::vector<codon::Fasta>& output, int& idx_Fasta,
       line.push_back(iss.get());
     }
     output[idx_Fasta].sequence.push_back(
-        codon::Seq(line, (file_format == ".codon") ? "encoded" : "AGCT"));
+        codon::Seq(line, (file_format == ".codon") ? codon::IO_FORMAT::cdn_ASCII : codon::IO_FORMAT::fna_DNA));
   }
 }
 
@@ -336,16 +337,16 @@ codon::Signal h_load_handle_line(codon::Fasta& fasta, bool& extracted_name,
     }
     PLOGD << "Final extracted line: " << line;
     fasta.sequence.push_back(
-        codon::Seq(line, (file_format == ".codon") ? "encoded" : "AGCT"));
+        codon::Seq(line, (file_format == ".codon") ? codon::IO_FORMAT::cdn_ASCII : codon::IO_FORMAT::fna_DNA));
   }
   return codon::Signal::PASS;
 }
 
 void h_print_to_cout(const codon::Fasta& fasta,
-                     const codon::OutputFormat& output_format) {
+                     const codon::IO_FORMAT& output_format) {
   std::cout << fasta.name << "\n";
   if (!fasta.comments.empty() && fasta.comments != "N/A") {
     std::cout << fasta.comments << "\n";
   }
-  std::cout << fasta.sequence.get_seq_str(output_format);
+  std::cout << fasta.sequence.to_str(output_format, " ");
 }

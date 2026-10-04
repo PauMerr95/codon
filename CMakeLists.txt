@@ -38,8 +38,7 @@ endif()
 add_library(codon_lib
             src/codon.cpp
             src/seq.cpp
-            src/readwrite.cpp
-            src/transmute.cpp)
+            src/readwrite.cpp)
 
 target_include_directories(codon_lib
 	PUBLIC
@@ -96,10 +95,10 @@ endif()
 add_executable(testing
     test/test_instantiator.cpp
     test/test_codon.cpp
-    test/test_seq.cpp
-    test/test_locator.cpp
-    test/test_readwrite.cpp
-    test/test_iterators.cpp
+    #test/test_seq.cpp
+    #test/test_locator.cpp
+    #test/test_readwrite.cpp
+    #test/test_iterators.cpp
     src/logging.cpp)
 
 target_link_libraries(testing

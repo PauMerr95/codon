@@ -1,3 +1,4 @@
+/*
 #include <chrono>
 #include <cstdint>
 #include <future>
@@ -26,7 +27,7 @@ using namespace std::chrono_literals;
 struct Args {
   bool excl_range;
   bool need_help;
-  std::pair<codon::locator, codon::locator> range;
+  std::pair<Seq::base_iterator, Seq::base_iterator> range;
   std::vector<Operation> operations;
   std::string path_in;
   std::string path_out;
@@ -35,8 +36,8 @@ struct Args {
 
   Args(std::vector<Operation> operations, std::string path_in = "",
        std::string path_out = "", std::string error_msg = "",
-       std::pair<codon::locator, codon::locator> range =
-           std::pair<codon::locator, codon::locator>({0, 1}, {0, 1}),
+       std::pair<Seq::base_iterator, Seq::base_iterator> range =
+           std::pair<Seq::base_iterator, Seq::base_iterator>(),
        bool excl_range = false, bool need_help = false,
        std::chrono::milliseconds duration = 0ms);
   Args(const Args&) = default;
@@ -57,6 +58,6 @@ void runner(codon::Seq& loaded_DNA, Args& caller, Task& s_task_status,
             Task& s_bar_status);
 void writer(const codon::Seq& seq, Args& caller, Task& s_task_status,
             Task& s_bar_status);
-
+*/
 }  // namespace cli
 }  // namespace codon

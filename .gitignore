@@ -3,6 +3,7 @@ Testing/
 .cache/
 setup_config.bat
 cmake/
+CMakeFiles/
 .git/
 .codespace/
 include/Catch2

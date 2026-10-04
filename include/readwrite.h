@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "codon.h"
 #include "seq.h"
 
 namespace codon {
@@ -16,9 +17,9 @@ struct Fasta {
   Fasta(codon::Fasta&&) noexcept = default;
 
   void write(const std::filesystem::path& = "cout",
-             OutputFormat OutputFormat = as_DNA) const;
+             IO_FORMAT OutputFormat = fna_DNA) const;
   void write_sep(const std::filesystem::path& = "cout",
-                 OutputFormat OutputFormat = as_DNA, char sep = ' ') const;
+                 IO_FORMAT OutputFormat = fna_DNA, char sep = ' ') const;
 };
 
 codon::Fasta load(const std::string& path_in);

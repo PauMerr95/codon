@@ -211,10 +211,10 @@ void test::check_shifting(std::vector<codon::Seq> &vec_seq) {
     codon::Seq original_seq = curr_seq;
 
     curr_seq.right_shift();
-    REQUIRE(curr_seq.get_codon_at(control_locator[0]).get_bases_len() < 3);
+    REQUIRE(curr_seq.get_codon_at(control_locator[0]).length() < 3);
     REQUIRE_FALSE(curr_seq == original_seq);
     curr_seq.left_shift();
-    REQUIRE(curr_seq.get_codon_at(control_locator[0]).get_bases_len() == 3);
+    REQUIRE(curr_seq.get_codon_at(control_locator[0]).length() == 3);
     curr_seq.right_shift();
     curr_seq.right_shift();
     curr_seq.right_shift();
@@ -243,7 +243,7 @@ inline std::vector<codon::locator> generate_locators(
     int index{
         randomiser::get_int(sequence.get_first_idx(), sequence.get_last_idx())};
     int shift{
-        randomiser::get_int(1, sequence.get_codon_at(index).get_bases_len())};
+        randomiser::get_int(1, sequence.get_codon_at(index).length())};
     vec_locators.emplace_back(codon::locator(index, shift));
   }
   std::string message;
@@ -336,11 +336,11 @@ void test::check_insertions_codons(std::vector<codon::Seq> &vec_seq,
     check_insertion_codon(
         curr_seq, codon::Codon("AG"),
         codon::locator(last_idx,
-                       curr_seq.get_codon_at(last_idx).get_bases_len()));
+                       curr_seq.get_codon_at(last_idx).length()));
     check_insertion_codon(
         curr_seq, codon::Codon("VOID"),
         codon::locator(curr_seq.get_last_idx(),
-                       curr_seq.get_codon_at(last_idx).get_bases_len()));
+                       curr_seq.get_codon_at(last_idx).length()));
     check_insertion_codon(curr_seq, codon::Codon("TAA"),
                           curr_seq.get_last_loc());
     // edge case low:
@@ -349,7 +349,7 @@ void test::check_insertions_codons(std::vector<codon::Seq> &vec_seq,
     check_insertion_codon(
         curr_seq, codon::Codon("VOID"),
         codon::locator(first_idx,
-                       curr_seq.get_codon_at(last_idx).get_bases_len()));
+                       curr_seq.get_codon_at(last_idx).length()));
     check_insertion_codon(curr_seq, codon::Codon("ATG"),
                           curr_seq.get_first_loc());
     PLOGD << "Passed required edge case checks for seq number " << counter_seq;
@@ -374,14 +374,14 @@ void test::check_insertion_codon(codon::Seq &seq, codon::Codon insert,
 
     PLOGD << "Sequence after insertion: " << seq.get_seq_strsep();
 
-    codon::Codon removed_codon = seq.pop_codon(locator, insert.get_bases_len());
+    codon::Codon removed_codon = seq.pop_codon(locator, insert.length());
     std::size_t bp_post_removal{seq.get_seq_trulen("bp")};
     std::string codonstr_post_removal{
         seq.get_codon_at(locator).get_bases_str()};
 
     PLOGD << "Sequence after restoral: " << seq.get_seq_strsep();
 
-    REQUIRE(bp_init + insert.get_bases_len() == bp_post_insert);
+    REQUIRE(bp_init + insert.length() == bp_post_insert);
     REQUIRE(removed_codon.get_bases_str() == insert.get_bases_str());
     REQUIRE(bp_init == bp_post_removal);
     REQUIRE(codonstr_before_insert == codonstr_post_removal);
@@ -415,7 +415,7 @@ void test::check_insertions_seqs(std::vector<codon::Seq> &vec_seq,
 
     codon::locator locator_low = codon::locator(first_idx, 1);
     codon::locator locator_high = codon::locator(
-        last_idx, curr_seq.get_codon_at(last_idx).get_bases_len());
+        last_idx, curr_seq.get_codon_at(last_idx).length());
 
     test::check_insertion_seq(curr_seq, seq_low, locator_low);
     test::check_insertion_seq(curr_seq, seq_low, locator_high);
@@ -500,14 +500,14 @@ void test::check_pushback_codons(std::vector<codon::Seq> &vec_seq,
         std::size_t bp_after_insert{curr_seq.get_seq_trulen("bp")};
 
         codon::Codon popped_codon =
-            curr_seq.pop_codon(insert_loc, curr_codon.get_bases_len());
+            curr_seq.pop_codon(insert_loc, curr_codon.length());
 
         std::string seq_after_removal{curr_seq.get_seq_str()};
         std::size_t bp_after_removal{curr_seq.get_seq_trulen("bp")};
 
         REQUIRE(bp_init == bp_after_removal);
         REQUIRE(curr_codon.get_bases_str() == popped_codon.get_bases_str());
-        REQUIRE(bp_init + curr_codon.get_bases_len() == bp_after_insert);
+        REQUIRE(bp_init + curr_codon.length() == bp_after_insert);
         REQUIRE(seq_init == seq_after_removal);
       }
     }

@@ -1,3 +1,4 @@
+/*
 #include "cl_arg.h"
 
 #include <plog/Log.h>
@@ -464,3 +465,4 @@ void codon::cli::run_loading_bar(codon::cli::Task& s_task_status,
   bar.mark_as_completed();
   s_bar_status = codon::cli::Task::completed;
 }
+*/

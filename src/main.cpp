@@ -1,16 +1,18 @@
-#include <chrono>
-#include <exception>
-#include <filesystem>
-#include <functional>
-#include <future>
 #include <iostream>
-#include <stdexcept>
-#include <thread>
+// #include <chrono>
+// #include <exception>
+// #include <filesystem>
+// #include <functional>
+// #include <future>
+// #include <stdexcept>
+// #include <thread>
 
-#include "cl_arg.h"
-#include "seq.h"
+// #include "cl_arg.h"
+// #include "seq.h"
 
 int main(int argc, char* argv[]) {
+  std::cout << "CLI COMMENTED OUT FOR REFACTOR" << std::endl;
+/*
   std::cout << "Current Path:" << std::filesystem::current_path() << "\n";
   try {
     codon::cli::Args caller{codon::cli::parse_args(argc, argv)};
@@ -85,7 +87,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Exception triggered: " << e.what();
   }
 
-  /*
     try {
       // Loading .fasta
       auto start_load_fasta = std::chrono::high_resolution_clock::now();

@@ -24,7 +24,7 @@ codon::base codon::Codon::get_base(codon::shift shift) const {
           "Passed shift is out of range for Codon::get_base()\n"
           "Codon '{}'\n"
           "Shift: '{}'",
-          this->get_bases_str(), static_cast<int>(shift)));
+          this->to_str(), static_cast<int>(shift)));
   }
   cdn >>= 2*(this->length() - 1 - static_cast<int>(shift));
   return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));

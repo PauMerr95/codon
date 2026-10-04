@@ -181,7 +181,7 @@ void test::check_iterator_arithmetics(const vec_base_iter &vec_locator){
 
 // Helper function to verify if passed codon is a valid codon check_iterator_comparisons// .get_bases_len with the amount of valid characters in the string representation.
 bool is_valid_codon(const codon::Codon& cdn) {
-  int len{cdn.get_bases_len()};
+  int len{cdn.length()};
   REQUIRE((len > 0  && len <= 3));
   std::string cdn_str{cdn.get_bases_str()};
   int len_valid = std::ranges::count_if(
