@@ -136,9 +136,10 @@ class Codon {
   std::uint8_t bases{0};
 
   constexpr Transmuter  _transmute() const;
-  constexpr std::size_t _to_idx() const;
 
  public:
+  constexpr std::size_t _to_idx() const;
+
   constexpr Codon(std::string_view bases_str);
   constexpr Codon(const base& base);
   constexpr Codon(char encoded_char);
@@ -150,19 +151,19 @@ class Codon {
   constexpr bool is_empty() const;
   constexpr bool is_complement_of(const Codon& other) const;
 
-  constexpr std::string to_str(IO_FORMAT fmt = fna_DNA) const;
+  std::string to_str(IO_FORMAT fmt = fna_DNA) const;
   constexpr int length() const;
 
-  constexpr std::string    get_inner_as_dna()    const;
-  constexpr std::string    get_inner_as_rna()    const;
-  constexpr std::string    get_inner_as_prot_w() const;
-  constexpr char           get_inner_as_prot()   const;
-  constexpr char           get_inner_as_ascii()  const;
-  constexpr int            get_inner_as_int()    const;
-  constexpr std::bitset<8> get_inner_as_bin()    const;
+  constexpr std::string_view get_inner_as_dna()    const;
+  constexpr std::string_view get_inner_as_rna()    const;
+  constexpr std::string_view get_inner_as_prot_w() const;
+  constexpr char get_inner_as_prot() const;
+  constexpr char get_inner_as_ascii() const;
+  constexpr int  get_inner_as_int() const;
+  std::bitset<8> get_inner_as_bin() const;
 
   base get_base(shift shift=MAX_SHIFT) const;
-  base set_base(shift shift, base base);
+  void set_base(shift shift, base base);
 
   void replace(base base, shift shift=ZERO);
   void insert_right(base base);
@@ -177,18 +178,18 @@ class Codon {
   codon::Codon flip() const;
   void flip_inplace();
 
-  codon::Codon operator=(const codon::Codon& other) {
+  constexpr codon::Codon operator=(const codon::Codon& other) {
     this->bases = other.bases;
     return *this;
   }
-  codon::Codon operator=(codon::Codon&& other) {
+  constexpr codon::Codon operator=(codon::Codon&& other) {
     this->bases = other.bases;
     return *this;
   }
-  bool operator==(const codon::Codon& other) const {
+  constexpr bool operator==(const codon::Codon& other) const {
     return (this->bases == other.bases);
   }
-  bool operator!=(const codon::Codon& other) const {
+  constexpr bool operator!=(const codon::Codon& other) const {
     return (this->bases != other.bases);
   }
 };
@@ -231,15 +232,14 @@ constexpr codon::Codon::Codon(std::string_view bases_str) {
     this->bases = to_uint8(codon::marker::VOID);
     return;
   }
-  if (bases_str.length() > 3) {
+  if (bases_str.size() > 3) {
     throw std::invalid_argument(
       std::format(
         "Encountered invalid char length during codon creation: "
         "'{}'",
         bases_str));
   }
-  unsigned int generator =
-    to_uint(codon::base::G);
+  unsigned int generator{0};
   for (const char& b : bases_str) {
     switch (b) {
       case 'A':
@@ -262,6 +262,11 @@ constexpr codon::Codon::Codon(std::string_view bases_str) {
               "This function call cannot handle wildcards.", b));
       }
     }
+  }
+  switch (bases_str.size()) {
+    case 1: generator |= to_uint(codon::marker::ONE); break;
+    case 2: generator |= to_uint(codon::marker::TWO); break;
+    case 3: generator |= to_uint(codon::marker::THREE); break;
   }
   this->bases = to_uint8(generator);
 };
@@ -333,24 +338,11 @@ constexpr bool Codon::is_complement_of(const Codon& other) const {
   // std::unreachable(); Add with C++23
 }
 
-
-// Returns the Codon as a string with multiple format options
-constexpr std::string Codon::to_str(IO_FORMAT fmt) const {
-  switch (fmt) {
-    case cdn_ASCII: return std::string{this->get_inner_as_ascii()};
-    case cdn_NUM:;  return std::to_string(this->get_inner_as_int());
-    case cdn_BIN:   return this->get_inner_as_bin().to_string();
-    case fna_PROT:  return this->get_inner_as_prot_w();
-    case fna_RNA:   return this->get_inner_as_rna();
-    case fna_DNA:   return this->get_inner_as_dna();
-  }
-}
-
 // This function returns the length of the codon.
 // Returns 0 for VOIDs
 constexpr int codon::Codon::length() const {
   switch (static_cast<codon::marker>(
-        to_uint(this->bases) | to_uint(codon::mask::marker))) {
+        to_uint(this->bases) & to_uint(codon::mask::marker))) {
     case codon::marker::VOID:  return 0;
     case codon::marker::ONE:   return 1;
     case codon::marker::TWO:   return 2;
@@ -375,31 +367,18 @@ constexpr int Codon::get_inner_as_int() const {
   return static_cast<int>(this->bases);
 }
 
-constexpr std::bitset<8> Codon::get_inner_as_bin() const {
-  return std::bitset<8>(this->bases);
+constexpr std::string_view Codon::get_inner_as_dna() const {
+  return this->_transmute().dna;
 }
 
-constexpr std::string Codon::get_inner_as_dna() const {
-  std::string out;
-  int len = this->length();
-  unsigned int cdn = to_uint(this->bases);
-  unsigned int mask = to_uint(mask::base_1) << to_uint(2*len);
-  while (len) {
-    unsigned int ejected = mask & cdn;
-    ejected >>= to_uint(len--*2);
-    out += base_to_char(static_cast<enum base>(ejected));
-    mask >>= 2;
-  }
-  return out;
-}
 constexpr Transmuter Codon::_transmute() const {
   return _transmute_arr[this->_to_idx()];
 }
 
-constexpr std::string Codon::get_inner_as_rna() const {
-  return this->_transmute().dna;
+constexpr std::string_view Codon::get_inner_as_rna() const {
+  return this->_transmute().rna;
 }
-constexpr std::string Codon::get_inner_as_prot_w() const {
+constexpr std::string_view Codon::get_inner_as_prot_w() const {
   return this->_transmute().prot_w;
 }
 constexpr char Codon::get_inner_as_prot() const {
@@ -412,9 +391,9 @@ constexpr std::size_t Codon::_to_idx() const {
   std::size_t idx{};
   switch (len) {
     case 0: break;
-    case 1: idx = (raw &  to_uint(mask::base_1)) + 1; break;
-    case 2: idx = (raw &  to_uint(mask::r_half)) + 5; break;
-    case 3: idx = (raw & ~to_uint(mask::all_bs)) + 21; break;
+    case 1: idx = (raw & to_uint(mask::base_1)) + 1; break;
+    case 2: idx = (raw & to_uint(mask::r_half)) + 5; break;
+    case 3: idx = (raw & to_uint(mask::all_bs)) + 21; break;
     default: throw std::runtime_error(std::format(
                    "Invalid state during codon.to_idx()."
                    "Expected codon.length() to be 0-3 but received '{}'",
@@ -427,4 +406,4 @@ constexpr std::size_t Codon::_to_idx() const {
         idx));
 }
 
-}  // namespace codon
+} // namespace codon

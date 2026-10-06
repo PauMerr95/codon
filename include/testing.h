@@ -1,9 +1,9 @@
 #pragma once
 // #include <filesystem>
-#include <string>
-#include <vector>
+// #include <string>
+// #include <vector>
 
-#include "codon.h"
+// #include "codon.h"
 // #include "readwrite.h"
 // #include "seq.h"
 
@@ -13,7 +13,7 @@ enum Result : bool { Pass, Fail };
 
 Result codon_main_test();
 Result codon_auxiliary();
-Result codon_construction();
+Result codon_constr();
 Result codon_getters();
 Result codon_setters();
 Result codon_operator_overloads();
