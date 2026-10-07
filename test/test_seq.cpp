@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <ranges>
 
 #include "codon.h"
 #include "random.h"
@@ -39,10 +40,23 @@ const std::string_view DUMMY_SEQ =
   "GCTGCTGAGCAACCCGAACTCAACGCCGGATTTCTCTGTAGATGATAGCGAAGGCGTAGCAGAAACTAAC"
   "GAAGATTTTTAA";
 
+auto chunked(std::string_view sv, std::size_t n = 3) {
+  return std::views::iota(std::size_t{0}, (sv.size() + n - 1)/n)
+    | std::views::transform([sv, n](std::size_t i) { return sv.substr(i*n, n); });
+}
+
+std::vector<std::string_view> create_codons() {
+  auto chunks = chunked(DUMMY_SEQ);
+  std::vector<std::string_view> v;
+  v.reserve(chunks.size());
+  return v;
+}
+
 
 }  // namespace constants
 
 test::Result test::seq_test() {
+  const std::vector<std::string_view> DUMMY_CODONS{constants::create_codons()};
   /* Main testing function for seq, all required subtest are started
    * from here.
    */

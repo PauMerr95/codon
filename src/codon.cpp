@@ -37,9 +37,10 @@ codon::base codon::Codon::get_base(codon::shift shift) const {
     throw std::out_of_range(
         std::format(
           "Passed shift is out of range for Codon::get_base()\n"
-          "Codon '{}'\n"
+          "Codon: '{}' | '{}'\n"
           "Shift: '{}'",
-          this->to_str(), static_cast<int>(shift)));
+          this->to_str(), this->to_str(cdn_BIN),
+          static_cast<int>(shift)));
   }
   cdn >>= 2*(this->length() - 1 - static_cast<int>(shift));
   return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));
@@ -51,13 +52,17 @@ codon::base codon::Codon::get_base(codon::shift shift) const {
 void codon::Codon::set_base(codon::shift shift, codon::base base) {
   if (this->is_empty())
     throw std::out_of_range("Codon::set_base() called on empty Codon. Did you mean to insert?");
+  if (shift == codon::shift::MAX_SHIFT) {
+    shift = static_cast<codon::shift>(this->length() - 1);
+  }
   if (this->length() <= static_cast<int>(shift)) {
     throw std::out_of_range(
         std::format(
-          "Passed shift is out of range for Codon::get_base()\n"
-          "Codon '{}'\n"
+          "Passed shift is out of range for Codon::set_base()\n"
+          "Codon: '{}' | '{}'\n"
           "Shift: '{}'",
-          this->to_str(), static_cast<int>(shift)));
+          this->to_str(), this->to_str(cdn_BIN),
+          static_cast<int>(shift)));
   }
 
   unsigned int cdn{to_uint(this->bases)};
@@ -151,6 +156,12 @@ void codon::Codon::insert_left(codon::base base) {
 //@param codon::base: base to be insert_left
 //@return codon::base: dropped base previously in shift::ZERO
 codon::base codon::Codon::squeeze_right(codon::base new_base) {
+  if (!this->is_full()) {
+    throw std::runtime_error(std::format(
+        "squeeze_right({}) used on codon that is not full.\n"
+        "Did you mean to use insert_right",
+        base_to_char(new_base)));
+  }
   unsigned int codon{to_uint(this->bases)};
   enum codon::base dropped_base = to_base(
           (codon & to_uint(mask::base_3)) >> 4
@@ -166,6 +177,12 @@ codon::base codon::Codon::squeeze_right(codon::base new_base) {
 //@param codon::base: base to be insert_left
 //@return codon::base: dropped base previously in shift::ZERO
 codon::base codon::Codon::squeeze_left(codon::base new_base) {
+  if (!this->is_full()) {
+    throw std::runtime_error(std::format(
+        "squeeze_left({}) used on codon that is not full.\n"
+        "Did you mean to use insert_left",
+        base_to_char(new_base)));
+  }
   unsigned int codon{to_uint(this->bases)};
   enum codon::base dropped_base =
       to_base(codon & to_uint(mask::base_1));
@@ -179,19 +196,24 @@ codon::base codon::Codon::squeeze_left(codon::base new_base) {
 // Removes and and returns a base
 // @param shift: which base - defaults to right-most
 codon::base codon::Codon::pop(codon::shift shift) {
-  int original_len{this->length()};
-  int sh_int = static_cast<int>(shift);
-  // 0 1 2 sh_int
-  // 1 2 3 len
-  if (shift == codon::MAX_SHIFT || (sh_int + 1 >= original_len)) {
-    codon::base popped_base =
-        to_base(to_uint(this->bases) & to_uint(mask::base_1));
-    if (original_len == 1) {
-      this->bases = to_uint8(marker::VOID);
-    } else {
-      this->bases >>= 2;
-    }
-    return popped_base;
+  int original_len{this->length()};     // 0 1 2
+  if (!original_len) {
+    throw std::runtime_error(std::format(
+          "Codon::pop('{}') called on VOID Codon."
+          "Codon: '{}' | '{}'",
+          static_cast<int>(shift),
+          this->to_str(), this->to_str(codon::IO_FORMAT::cdn_BIN)));
+  }
+
+  int sh_int = static_cast<int>(shift); // 1 2 3
+  if (shift == codon::shift::MAX_SHIFT) sh_int = original_len - 1;
+
+  if (original_len <= sh_int) {
+    throw std::runtime_error(std::format(
+          "Codon::pop('{}') called on a Codon of length '{}'."
+          "Codon: '{}' | '{}'",
+          static_cast<int>(shift), this->length(),
+          this->to_str(), this->to_str(codon::IO_FORMAT::cdn_BIN)));
   }
 
   unsigned int offset = (original_len - sh_int - 1) * 2;
@@ -199,24 +221,20 @@ codon::base codon::Codon::pop(codon::shift shift) {
   codon::base popped_base =
       to_base((to_uint(this->bases) & mask_pop) >> offset);
 
-  unsigned int mask_save = codon::base::A;
-  while (offset) {
-    // generate mask that preserves right side
-    mask_save <<= 2;
-    mask_save |= to_uint(codon::base::T);
-    offset -= 2;
-  }
-
+  unsigned int mask_save = ((mask_pop >> 1) & mask_pop) - 1; // shenanigans
   unsigned int mask_kill = ~mask_save;
-  unsigned int temporary_codon{this->bases};
-  mask_save &=
-      temporary_codon;  // all the bases to the right of popped are stored
-  temporary_codon >>= 2;
-  // delete and restore:
-  temporary_codon &= mask_kill;  // sets the right side to 0s
-  temporary_codon |= mask_save;  // restores previously saved bases
-  this->bases = to_uint8(temporary_codon);
+  unsigned int temporary_codon{to_uint(this->bases) & to_uint(codon::mask::all_bs)};
 
+  //save, shift, delete and restore
+  mask_save &= temporary_codon;
+  temporary_codon >>= 2;
+  temporary_codon &= mask_kill;
+  temporary_codon |= mask_save;
+  switch (original_len - 1) {
+    case 0: this->bases = to_uint8(temporary_codon | to_uint(codon::marker::VOID)); break;
+    case 1: this->bases = to_uint8(temporary_codon | to_uint(codon::marker::ONE)); break;
+    case 2: this->bases = to_uint8(temporary_codon | to_uint(codon::marker::TWO)); break;
+  }
   return popped_base;
 }
 

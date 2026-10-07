@@ -1,5 +1,4 @@
 #include <bitset>
-#include <cstddef>
 #include <exception>
 #include <plog/Log.h>
 #include <iostream>
@@ -7,9 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <string_view>
 #include <type_traits>
-#include <vector>
 
-#include <ranges>
 #include "codon.h"
 #include "testing.h"
 
@@ -41,21 +38,8 @@ void base_ref_constr();
 void base_ref_op_overload();
 void base_ref_swap();
 
-auto chunked(std::string_view sv, std::size_t n = 3) {
-  return std::views::iota(std::size_t{0}, (sv.size() + n - 1)/n)
-    | std::views::transform([sv, n](std::size_t i) { return sv.substr(i*n, n); });
-}
-
-std::vector<std::string_view> create_codons() {
-  auto chunks = chunked(DUMMY_SEQ);
-  std::vector<std::string_view> v;
-  v.reserve(chunks.size());
-  return v;
-}
-
 
 test::Result test::codon_main_test() {
-  const std::vector<std::string_view> DUMMY_CODONS{create_codons()};
   try {
     aux_enums();
     aux_functions();
@@ -64,9 +48,8 @@ test::Result test::codon_main_test() {
     constr_base();
     constr_encoded();
     constr_copy_move();
-
     op_overload_comparisons();
-/*
+
     getters_length_states();
     getters_inners();
     getters_to_str();
@@ -78,8 +61,8 @@ test::Result test::codon_main_test() {
     modifiers_squeeze();
     modifiers_pop();
     modifiers_flip();
+/*
     modifiers_reverse();
-
 
     base_ref_constr();
     base_ref_op_overload();
@@ -315,11 +298,18 @@ void getters_inners() {
   STATIC_REQUIRE(Gly_cdn.get_inner_as_prot_w() == "Gly");
   STATIC_REQUIRE(Ile_cdn.get_inner_as_prot_w() == "Ile");
   STATIC_REQUIRE(Ter_cdn.get_inner_as_prot_w() == "Ter");
+}
 
+//TODO: Update to also test other formats ...
+void getters_to_str() {
   constexpr codon::Codon empty{"VOID"};
   constexpr codon::Codon triplet{"TAT"};
   constexpr codon::Codon duplet{"GC"};
   constexpr codon::Codon singlet{"A"};
+  constexpr codon::Codon Met_cdn{"ATG"};
+  constexpr codon::Codon Gly_cdn{"GGC"};
+  constexpr codon::Codon Ile_cdn{"ATC"};
+  constexpr codon::Codon Ter_cdn{"TAG"};
 
   REQUIRE(empty.to_str()   == "VOID");
   REQUIRE(triplet.to_str() == "TAT");
@@ -340,6 +330,7 @@ void getters_get_base() {
   REQUIRE(singlet.get_base(codon::shift::ZERO) == codon::base::A);
   REQUIRE(duplet.get_base(codon::shift::ZERO) == codon::base::G);
   REQUIRE(Ile_cdn.get_base(codon::shift::ONE) == codon::base::T);
+  //BUG: THROWS by mistake
   REQUIRE(Gly_cdn.get_base(codon::shift::TWO) == codon::base::C);
 
   REQUIRE_THROWS(singlet.get_base(codon::shift::ONE));
@@ -398,8 +389,8 @@ void modifiers_pop() {
   REQUIRE(meow.to_str() == "A");
 
   codon::Codon day{"TAG"};
-  codon::base popped_last = meow.pop(codon::shift::TWO);
-  codon::base popped_second = meow.pop(codon::shift::ONE);
+  codon::base popped_last = day.pop(codon::shift::TWO);
+  codon::base popped_second = day.pop(codon::shift::ONE);
   REQUIRE(popped_last == codon::base::G);
   REQUIRE(popped_second == codon::base::A);
   REQUIRE(day.to_str() == "T");
@@ -432,7 +423,9 @@ void modifiers_flip() {
   REQUIRE(lonely_base.to_str() == "A");
 }
 
-void modifiers_reverse() {}
+void modifiers_reverse() {
+
+}
 
 
 void base_ref_constr() {}
