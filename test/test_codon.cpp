@@ -403,6 +403,9 @@ void modifiers_squeeze() {
   dropped = meow.squeeze_right(codon::base::T);
   REQUIRE(dropped == codon::base::G);
   REQUIRE(meow.to_str() == "CAT");
+
+  REQUIRE_THROWS(codon::Codon("GC").squeeze_left(codon::base::A));
+  REQUIRE_THROWS(codon::Codon("A").squeeze_right(codon::base::T));
 }
 
 void modifiers_pop() {}
