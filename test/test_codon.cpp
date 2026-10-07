@@ -10,7 +10,6 @@
 #include <vector>
 
 #include <ranges>
-#include "catch2/internal/catch_clara.hpp"
 #include "codon.h"
 #include "testing.h"
 
@@ -41,25 +40,6 @@ void modifiers_reverse();
 void base_ref_constr();
 void base_ref_op_overload();
 void base_ref_swap();
-
-//>NC_000913.3:c2823769-2822708 recA [organism=Escherichia coli str. K-12 substr. MG1655] [GeneID=947170] [chromosome=]
-const std::string_view DUMMY_SEQ =
-  "ATGGCTATCGACGAAAACAAACAGAAAGCGTTGGCGGCAGCACTGGGCCAGATTGAGAAACAATTTGGTA"
-  "AAGGCTCCATCATGCGCCTGGGTGAAGACCGTTCCATGGATGTGGAAACCATCTCTACCGGTTCGCTTTC"
-  "ACTGGATATCGCGCTTGGGGCAGGTGGTCTGCCGATGGGCCGTATCGTCGAAATCTACGGACCGGAATCT"
-  "TCCGGTAAAACCACGCTGACGCTGCAGGTGATCGCCGCAGCGCAGCGTGAAGGTAAAACCTGTGCGTTTA"
-  "TCGATGCTGAACACGCGCTGGACCCAATCTACGCACGTAAACTGGGCGTCGATATCGACAACCTGCTGTG"
-  "CTCCCAGCCGGACACCGGCGAGCAGGCACTGGAAATCTGTGACGCCCTGGCGCGTTCTGGCGCAGTAGAC"
-  "GTTATCGTCGTTGACTCCGTGGCGGCACTGACGCCGAAAGCGGAAATCGAAGGCGAAATCGGCGACTCTC"
-  "ACATGGGCCTTGCGGCACGTATGATGAGCCAGGCGATGCGTAAGCTGGCGGGTAACCTGAAGCAGTCCAA"
-  "CACGCTGCTGATCTTCATCAACCAGATCCGTATGAAAATTGGTGTGATGTTCGGTAACCCGGAAACCACT"
-  "ACCGGTGGTAACGCGCTGAAATTCTACGCCTCTGTTCGTCTCGACATCCGTCGTATCGGCGCGGTGAAAG"
-  "AGGGCGAAAACGTGGTGGGTAGCGAAACCCGCGTGAAAGTGGTGAAGAACAAAATCGCTGCGCCGTTTAA"
-  "ACAGGCTGAATTCCAGATCCTCTACGGCGAAGGTATCAACTTCTACGGCGAACTGGTTGACCTGGGCGTA"
-  "AAAGAGAAGCTGATCGAGAAAGCAGGCGCGTGGTACAGCTACAAAGGTGAGAAGATCGGTCAGGGTAAAG"
-  "CGAATGCGACTGCCTGGCTGAAAGATAACCCGGAAACCGCGAAAGAGATCGAGAAGAAAGTACGTGAGTT"
-  "GCTGCTGAGCAACCCGAACTCAACGCCGGATTTCTCTGTAGATGATAGCGAAGGCGTAGCAGAAACTAAC"
-  "GAAGATTTTTAA";
 
 auto chunked(std::string_view sv, std::size_t n = 3) {
   return std::views::iota(std::size_t{0}, (sv.size() + n - 1)/n)
@@ -431,7 +411,27 @@ void modifiers_pop() {
   REQUIRE_THROWS(incomplete.pop(codon::shift::TWO));
   REQUIRE_THROWS(incomplete.pop(codon::shift::ONE));
 }
-void modifiers_flip() {}
+
+void modifiers_flip() {
+  codon::Codon meow{"CAT"};
+  meow.flip_inplace();
+  REQUIRE(meow.to_str() == "GTA");
+  REQUIRE(meow.flip().to_str() == "CAT");
+  REQUIRE(meow.to_str() == "GTA");
+
+  codon::Codon strong_bond{"GC"};
+  strong_bond.flip_inplace();
+  REQUIRE(strong_bond.to_str() == "CG");
+  REQUIRE(strong_bond.flip().to_str() == "GC");
+  REQUIRE(strong_bond.to_str() == "CG");
+
+  codon::Codon lonely_base{"T"};
+  lonely_base.flip_inplace();
+  REQUIRE(lonely_base.to_str() == "A");
+  REQUIRE(lonely_base.flip().to_str() == "T");
+  REQUIRE(lonely_base.to_str() == "A");
+}
+
 void modifiers_reverse() {}
 
 
