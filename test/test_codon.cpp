@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <ranges>
+#include "catch2/internal/catch_clara.hpp"
 #include "codon.h"
 #include "testing.h"
 
@@ -408,7 +409,28 @@ void modifiers_squeeze() {
   REQUIRE_THROWS(codon::Codon("A").squeeze_right(codon::base::T));
 }
 
-void modifiers_pop() {}
+void modifiers_pop() {
+  codon::Codon meow{"CAT"};
+  codon::base popped_default = meow.pop();
+  codon::base popped_first = meow.pop(codon::shift::ZERO);
+  REQUIRE(popped_default == codon::base::T);
+  REQUIRE(popped_first == codon::base::C);
+  REQUIRE(meow.to_str() == "A");
+
+  codon::Codon day{"TAG"};
+  codon::base popped_last = meow.pop(codon::shift::TWO);
+  codon::base popped_second = meow.pop(codon::shift::ONE);
+  REQUIRE(popped_last == codon::base::G);
+  REQUIRE(popped_second == codon::base::A);
+  REQUIRE(day.to_str() == "T");
+
+  codon::Codon incomplete{"CG"};
+  REQUIRE_THROWS(incomplete.pop(codon::shift::TWO));
+  REQUIRE_NOTHROW(incomplete.pop());
+  REQUIRE(incomplete.to_str() == "C");
+  REQUIRE_THROWS(incomplete.pop(codon::shift::TWO));
+  REQUIRE_THROWS(incomplete.pop(codon::shift::ONE));
+}
 void modifiers_flip() {}
 void modifiers_reverse() {}
 
