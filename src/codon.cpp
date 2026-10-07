@@ -22,58 +22,6 @@ std::bitset<8> Codon::get_inner_as_bin() const {
   return std::bitset<8>(this->bases);
 }
 
-// Returns the base at the specified shift.
-// Will throw when Codon is empty or when shift exceeds available bases
-// Exception is the default value MAX_SHIFT which will automatically take the right most base
-codon::base codon::Codon::get_base(codon::shift shift) const {
-  if (this->is_empty()) throw std::out_of_range("Codon::get_base() called on empty Codon.");
-  if (shift == codon::shift::MAX_SHIFT) {
-   return static_cast<codon::base>(
-       to_uint(this->bases) & to_uint(codon::mask::base_1));
-  }
-  unsigned int cdn = this->bases;
-  int len = this->length();
-  if (len <= static_cast<int>(shift)) {
-    throw std::out_of_range(
-        std::format(
-          "Passed shift is out of range for Codon::get_base()\n"
-          "Codon: '{}' | '{}'\n"
-          "Shift: '{}'",
-          this->to_str(), this->to_str(cdn_BIN),
-          static_cast<int>(shift)));
-  }
-  cdn >>= 2*(this->length() - 1 - static_cast<int>(shift));
-  return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));
-}
-
-// Will set the specified shift to the passed.
-// Will throw when Codon is empty or when shift exceeds available bases
-// Exception is the default value MAX_SHIFT which will automatically take the right most base
-void codon::Codon::set_base(codon::shift shift, codon::base base) {
-  if (this->is_empty())
-    throw std::out_of_range("Codon::set_base() called on empty Codon. Did you mean to insert?");
-  if (shift == codon::shift::MAX_SHIFT) {
-    shift = static_cast<codon::shift>(this->length() - 1);
-  }
-  if (this->length() <= static_cast<int>(shift)) {
-    throw std::out_of_range(
-        std::format(
-          "Passed shift is out of range for Codon::set_base()\n"
-          "Codon: '{}' | '{}'\n"
-          "Shift: '{}'",
-          this->to_str(), this->to_str(cdn_BIN),
-          static_cast<int>(shift)));
-  }
-
-  unsigned int cdn{to_uint(this->bases)};
-  unsigned int mask{to_uint(codon::mask::base_1)};
-  unsigned int insert{to_uint(base)};
-  int amount_shifts{2*(this->length() - 1 - static_cast<int>(shift))};
-  mask <<= amount_shifts;
-  insert <<= amount_shifts;
-  this->bases = to_uint8((cdn & ~mask) | insert);
-}
-
 void codon::Codon::replace(codon::base base, codon::shift shift) {
   int len = this->length();
   if (static_cast<int>(shift) >= len)

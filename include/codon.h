@@ -132,6 +132,8 @@ constexpr char base_to_char(const base& base) {
   }
 }
 
+class base_ref;
+
 class Codon {
   std::uint8_t bases{0};
 
@@ -162,8 +164,9 @@ class Codon {
   constexpr int  get_inner_as_int() const;
   std::bitset<8> get_inner_as_bin() const;
 
-  base get_base(shift shift=MAX_SHIFT) const;
-  void set_base(shift shift, base base);
+  constexpr base_ref get_base_ref(shift shift=ZERO);
+  constexpr base get_base(shift shift=MAX_SHIFT) const;
+  constexpr void set_base(shift shift, base base);
 
   void replace(base base, shift shift=ZERO);
   void insert_right(base base);
@@ -198,15 +201,15 @@ class base_ref{
   shift _shift;
 
   public:
-  base_ref(Codon* codon, shift s): _codon{codon}, _shift{s} {}
+  constexpr base_ref(Codon* codon, shift s): _codon{codon}, _shift{s} {}
 
-  operator codon::base() const { return _codon->get_base(_shift);}
+  constexpr operator codon::base() const { return _codon->get_base(_shift);}
 
-  const base_ref& operator=(codon::base b) const {
+  constexpr base_ref& operator=(codon::base b) const {
     _codon->set_base(_shift, b);
-    return *this;
+    return const_cast<base_ref&>(*this);
   }
-  const base_ref& operator=(const base_ref& bref) const {
+  constexpr base_ref& operator=(const base_ref& bref) const {
     return *this = codon::base(bref);
   }
   friend void swap(const base_ref& a, const base_ref& b) {
@@ -338,6 +341,10 @@ constexpr bool Codon::is_complement_of(const Codon& other) const {
   // std::unreachable(); Add with C++23
 }
 
+constexpr base_ref codon::Codon::get_base_ref(codon::shift shift) {
+  return base_ref{this, shift};
+}
+
 // This function returns the length of the codon.
 // Returns 0 for VOIDs
 constexpr int codon::Codon::length() const {
@@ -404,6 +411,58 @@ constexpr std::size_t Codon::_to_idx() const {
         "Codon to idx translation for _transmute call failed."
         "Expected to generate a value between 0 and 84 but got '{}'",
         idx));
+}
+
+// Returns the base at the specified shift.
+// Will throw when Codon is empty or when shift exceeds available bases
+// Exception is the default value MAX_SHIFT which will automatically take the right most base
+constexpr base Codon::get_base(codon::shift shift) const {
+  if (this->is_empty()) throw std::out_of_range("Codon::get_base() called on empty Codon.");
+  if (shift == codon::shift::MAX_SHIFT) {
+   return static_cast<codon::base>(
+       to_uint(this->bases) & to_uint(codon::mask::base_1));
+  }
+  unsigned int cdn = this->bases;
+  int len = this->length();
+  if (len <= static_cast<int>(shift)) {
+    throw std::out_of_range(
+        std::format(
+          "Passed shift is out of range for Codon::get_base()\n"
+          "Codon: '{}' | '{}'\n"
+          "Shift: '{}'",
+          this->to_str(), this->to_str(cdn_BIN),
+          static_cast<int>(shift)));
+  }
+  cdn >>= 2*(this->length() - 1 - static_cast<int>(shift));
+  return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));
+}
+
+// Will set the specified shift to the passed.
+// Will throw when Codon is empty or when shift exceeds available bases
+// Exception is the default value MAX_SHIFT which will automatically take the right most base
+constexpr void codon::Codon::set_base(codon::shift shift, codon::base base) {
+  if (this->is_empty())
+    throw std::out_of_range("Codon::set_base() called on empty Codon. Did you mean to insert?");
+  if (shift == codon::shift::MAX_SHIFT) {
+    shift = static_cast<codon::shift>(this->length() - 1);
+  }
+  if (this->length() <= static_cast<int>(shift)) {
+    throw std::out_of_range(
+        std::format(
+          "Passed shift is out of range for Codon::set_base()\n"
+          "Codon: '{}' | '{}'\n"
+          "Shift: '{}'",
+          this->to_str(), this->to_str(cdn_BIN),
+          static_cast<int>(shift)));
+  }
+
+  unsigned int cdn{to_uint(this->bases)};
+  unsigned int mask{to_uint(codon::mask::base_1)};
+  unsigned int insert{to_uint(base)};
+  int amount_shifts{2*(this->length() - 1 - static_cast<int>(shift))};
+  mask <<= amount_shifts;
+  insert <<= amount_shifts;
+  this->bases = to_uint8((cdn & ~mask) | insert);
 }
 
 } // namespace codon

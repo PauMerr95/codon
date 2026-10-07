@@ -34,9 +34,7 @@ void modifiers_flip();
 void modifiers_reverse();
 
 
-void base_ref_constr();
-void base_ref_op_overload();
-void base_ref_swap();
+void base_ref_test();
 
 
 test::Result test::codon_main_test() {
@@ -61,13 +59,10 @@ test::Result test::codon_main_test() {
     modifiers_squeeze();
     modifiers_pop();
     modifiers_flip();
-/*
     modifiers_reverse();
 
-    base_ref_constr();
-    base_ref_op_overload();
-    base_ref_swap();
-*/
+    base_ref_test();
+
   } catch (const std::exception& e) {
     std::cerr << "Error encountered in codon_main_test:\n" << e.what();
     return Result::Fail;
@@ -330,7 +325,6 @@ void getters_get_base() {
   REQUIRE(singlet.get_base(codon::shift::ZERO) == codon::base::A);
   REQUIRE(duplet.get_base(codon::shift::ZERO) == codon::base::G);
   REQUIRE(Ile_cdn.get_base(codon::shift::ONE) == codon::base::T);
-  //BUG: THROWS by mistake
   REQUIRE(Gly_cdn.get_base(codon::shift::TWO) == codon::base::C);
 
   REQUIRE_THROWS(singlet.get_base(codon::shift::ONE));
@@ -424,10 +418,42 @@ void modifiers_flip() {
 }
 
 void modifiers_reverse() {
+  codon::Codon meow{"CAT"};
+  meow.reverse_inplace();
+  REQUIRE(meow.to_str() == "TAC");
+  REQUIRE(meow.reverse().to_str() == "CAT");
+  REQUIRE(meow.to_str() == "TAC");
 
+  codon::Codon strong_bond{"GC"};
+  strong_bond.reverse_inplace();
+  REQUIRE(strong_bond.to_str() == "CG");
+  REQUIRE(strong_bond.reverse().to_str() == "GC");
+  REQUIRE(strong_bond.to_str() == "CG");
+
+  codon::Codon lonely_base{"T"};
+  lonely_base.reverse_inplace();
+  REQUIRE(lonely_base.to_str() == "T");
+  REQUIRE(lonely_base.reverse().to_str() == "T");
+  REQUIRE(lonely_base.to_str() == "T");
 }
 
+//Workaround because STATIC_REQUIRE cannot handle constexpr directly
+struct ref_base_result {
+  codon::base before, after;
+};
 
-void base_ref_constr() {}
-void base_ref_op_overload() {}
-void base_ref_swap() {}
+//Workaround because STATIC_REQUIRE cannot handle constexpr directly
+constexpr ref_base_result inner_base_ref_test() {
+  codon::Codon cdn{"ATG"};
+  codon::base_ref ref = cdn.get_base_ref(codon::shift::ZERO);
+  codon::base first_original = ref;
+  ref = codon::base::T;
+  return {first_original, cdn.get_base(codon::shift::ZERO)};
+}
+
+void base_ref_test() {
+  constexpr auto result = inner_base_ref_test();
+  STATIC_REQUIRE(result.before == codon::base::A);
+  STATIC_REQUIRE(result.after == codon::base::T);
+}
+
