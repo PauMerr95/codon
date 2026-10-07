@@ -280,9 +280,11 @@ codon::Codon codon::Codon::flip() const {
 // Flips the codon inplace
 // Will preserve marker but also flip undefined areas
 void codon::Codon::flip_inplace() {
-  unsigned int marker = to_uint(this->bases)
-                      | to_uint(mask::marker);
-  unsigned int codon = ~this->bases;
-  codon = codon & ~to_uint(mask::marker);
-  this->bases = to_uint8(codon | marker);
+  unsigned int cdn = to_uint(this->bases);
+  switch (this->length()) {
+    case 1: cdn ^= to_uint(codon::mask::base_1); break;
+    case 2: cdn ^= to_uint(codon::mask::r_half); break;
+    case 3: cdn ^= to_uint(codon::mask::all_bs); break;
+  }
+  this->bases = to_uint8(cdn);
 }
