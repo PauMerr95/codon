@@ -361,9 +361,10 @@ constexpr int codon::Codon::length() const {
 // This function readjusts the bases to a printable format
 constexpr char Codon::get_inner_as_ascii() const {
   switch (this->length()) {
-    case 1: return this->bases - ENCODING_DELTA_BASE1;
-    case 2: return this->bases - ENCODING_DELTA_BASE2;
-    case 3: return this->bases - ENCODING_DELTA_BASE3;
+    case 0: return '%';
+    case 1: return static_cast<char>(this->bases - ENCODING_DELTA_BASE1);
+    case 2: return static_cast<char>(this->bases - ENCODING_DELTA_BASE2);
+    case 3: return static_cast<char>(this->bases - ENCODING_DELTA_BASE3);
     default: throw std::runtime_error(std::format(
                  "Failed to transform codon to encoded char << '{}'", this->to_str())
                    );

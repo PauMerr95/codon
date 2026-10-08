@@ -335,6 +335,15 @@ void getters_to_str() {
   REQUIRE(Gly_cdn.to_str() == "GGC");
   REQUIRE(Ile_cdn.to_str() == "ATC");
   REQUIRE(Ter_cdn.to_str() == "TAG");
+
+  REQUIRE(empty.to_str(codon::IO_FORMAT::cdn_ASCII)   == "%");
+  REQUIRE(triplet.to_str(codon::IO_FORMAT::cdn_ASCII) == "r");
+  REQUIRE(duplet.to_str(codon::IO_FORMAT::cdn_ASCII)  == "0");
+  REQUIRE(singlet.to_str(codon::IO_FORMAT::cdn_ASCII) == "&");
+  REQUIRE(Met_cdn.to_str(codon::IO_FORMAT::cdn_ASCII) == "L");
+  REQUIRE(Gly_cdn.to_str(codon::IO_FORMAT::cdn_ASCII) == "U");
+  REQUIRE(Ile_cdn.to_str(codon::IO_FORMAT::cdn_ASCII) == "M");
+  REQUIRE(Ter_cdn.to_str(codon::IO_FORMAT::cdn_ASCII) == "p");
 }
 void getters_get_base() {
   constexpr codon::Codon singlet{"A"};
