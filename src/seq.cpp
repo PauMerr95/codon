@@ -99,6 +99,19 @@ Seq::~Seq() {
         << "' going out of scope";
 }
 
+std::string codon::Seq::to_str(IO_FORMAT fmt, std::string_view dlm) const {
+  int len_dml = dlm.size();
+  std::string out;
+  std::string delimiter(dlm);
+  out.reserve(this->length()*static_cast<std::size_t>(3+len_dml));
+  for (const Codon& cdn : this->seq)
+    out += (cdn.to_str(fmt) + delimiter);
+  if (len_dml > 0)
+    out.erase(out.end()-len_dml, out.end());
+  out.shrink_to_fit();
+  return out;
+}
+
 // Shifts the alignment of the sequence by specified amount % 3 to the left.
 // Underlying operations can throw if sequence is 'gappy'
 void codon::Seq::lshift_inplace(std::size_t amount) {

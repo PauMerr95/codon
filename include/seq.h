@@ -91,7 +91,7 @@ class Seq {
   constexpr std::size_t size() const { return this->seq.size();}
 
   // Return a string version of the sequence with additional formating options
-  constexpr std::string to_str(IO_FORMAT fmt = fna_DNA, std::string_view dlm = "") const;
+  std::string to_str(IO_FORMAT fmt = fna_DNA, std::string_view dlm = "") const;
 
   // Returns the bases stored in the sequence in O(1)
   // Assumes that every Codon expect for the first and last Codon are full.
@@ -357,19 +357,6 @@ static_assert(!std::is_convertible_v<Seq::const_base_iterator, Seq::base_iterato
 
 
 // DEFINITIONS
-constexpr std::string codon::Seq::to_str(IO_FORMAT fmt, std::string_view dlm) const {
-  int len_dml = dlm.size();
-  std::string out;
-  std::string delimiter(dlm);
-  out.reserve(this->length()*static_cast<std::size_t>(3+len_dml));
-  for (const Codon& cdn : this->seq)
-    out += (cdn.to_str(fmt) + delimiter);
-  if (len_dml > 0)
-    out.erase(out.end()-len_dml, out.end());
-  out.shrink_to_fit();
-  return out;
-}
-
 constexpr std::size_t codon::Seq::length() const {
     const std::size_t n = seq.size();
     if (n == 0) return 0;

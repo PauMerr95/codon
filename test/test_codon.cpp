@@ -33,40 +33,61 @@ void modifiers_pop();
 void modifiers_flip();
 void modifiers_reverse();
 
-
 void base_ref_test();
-
 
 test::Result test::codon_main_test() {
   try {
-    aux_enums();
-    aux_functions();
-
-    constr_strv();
-    constr_base();
-    constr_encoded();
-    constr_copy_move();
-    op_overload_comparisons();
-
-    getters_length_states();
-    getters_inners();
-    getters_to_str();
-    getters_get_base();
-
-    setters_insert();
-    setters_set_base();
-
-    modifiers_squeeze();
-    modifiers_pop();
-    modifiers_flip();
-    modifiers_reverse();
-
-    base_ref_test();
-
+    REQUIRE(test::codon_auxiliary() == test::Pass);
+    REQUIRE(test::codon_constr() == test::Pass);
+    REQUIRE(test::codon_getters() == test::Pass);
+    REQUIRE(test::codon_setters() == test::Pass);
+    REQUIRE(test::codon_operator_overloads() == test::Pass);
+    REQUIRE(test::codon_modifiers() == test::Pass);
+    REQUIRE(test::codon_base_ref() == test::Pass);
   } catch (const std::exception& e) {
     std::cerr << "Error encountered in codon_main_test:\n" << e.what();
     return Result::Fail;
   }
+  return Result::Pass;
+}
+
+test::Result test::codon_auxiliary() {
+  aux_enums();
+  aux_functions();
+  return Result::Pass;
+}
+test::Result test::codon_constr() {
+  constr_strv();
+  constr_base();
+  constr_encoded();
+  constr_copy_move();
+  return Result::Pass;
+}
+test::Result test::codon_getters() {
+  getters_length_states();
+  getters_inners();
+  getters_to_str();
+  getters_get_base();
+  return Result::Pass;
+}
+test::Result test::codon_setters() {
+  setters_insert();
+  setters_set_base();
+  return Result::Pass;
+}
+test::Result test::codon_operator_overloads() {
+  op_overload_comparisons();
+  return Result::Pass;
+}
+test::Result test::codon_modifiers() {
+  modifiers_squeeze();
+  modifiers_pop();
+  modifiers_flip();
+  modifiers_reverse();
+  return Result::Pass;
+}
+test::Result test::codon_base_ref() {
+  base_ref_test();
   return Result::Pass;
 }
 

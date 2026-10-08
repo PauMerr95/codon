@@ -4,27 +4,21 @@
 
 #define CATCH_CONFIG_MAIN
 
-TEST_CASE("codon", "[codon]") {
+TEST_CASE("testing Codon", "[codon]") {
   SECTION("testing codon.cpp") {
     REQUIRE(test::codon_main_test() == test::Result::Pass);
   }
 }
-/*
-TEST_CASE("iterators", "[seq]") {
-  SECTION("testing seq.cpp - iterators") {
-    REQUIRE(test::iterator_test() == test::Result::Pass);
-  }
-}
 
-TEST_CASE("locator", "[seq]") {
-  SECTION("testing seq.cpp - locator") {
-    REQUIRE(test::locator_test() == test::Result::Pass);
-  }
-}
-
-TEST_CASE("seq", "[seq]") {
+TEST_CASE("testing basic Seq", "[seq_basic]") {
   SECTION("testing seq.cpp - Seq") {
-    REQUIRE(test::seq_test() == test::Result::Pass);
+    REQUIRE(test::seq_test_basic() == test::Result::Pass);
+  }
+}
+/*
+TEST_CASE("testing basic Seq", "[seq_adv]") {
+  SECTION("testing seq.cpp - iterators and ranges") {
+    REQUIRE(test::seq_test_advanced() == test::Result::Pass);
   }
 }
 
