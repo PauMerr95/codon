@@ -5,6 +5,7 @@
 #include <exception>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -88,9 +89,9 @@ test::Result test::seq_test_basic() {
 
 test::Result test::seq_basic_constr() {
   seq_constr_from_sv();
-  // seq_constr_from_size();
-  // seq_constr_from_codon();
-  // seq_constr_from_seq();
+  seq_constr_from_size();
+  seq_constr_from_codon();
+  seq_constr_from_seq();
   return test::Result::Pass;
 }
 
@@ -109,8 +110,34 @@ void seq_constr_from_sv() {
   for (std::size_t idx{0}; idx < dummy_ascii.size() ;idx++) {
     REQUIRE(dummy_ascii[idx].get_inner_as_dna() == constants::DUMMY_ASCII_AS_DNA[idx]);
   }
+  // Not implemented yet in seq.cpp
   REQUIRE_THROWS(codon::Seq(constants::DUMMY_SEQ, codon::IO_FORMAT::cdn_BIN));
   REQUIRE_THROWS(codon::Seq(constants::DUMMY_SEQ, codon::IO_FORMAT::cdn_NUM));
   REQUIRE_THROWS(codon::Seq(constants::DUMMY_SEQ, codon::IO_FORMAT::fna_RNA));
   REQUIRE_THROWS(codon::Seq(constants::DUMMY_SEQ, codon::IO_FORMAT::fna_PROT));
 }
+
+void seq_constr_from_size() {
+  codon::Seq sequence{30};
+  REQUIRE(sequence.capacity() == 30);
+}
+
+void seq_constr_from_codon() {
+  codon::Codon cdn{"ATG"};
+  codon::Seq sequence{cdn};
+  REQUIRE(sequence[0] == cdn);
+}
+
+void seq_constr_from_seq() {
+  codon::Seq original{constants::DUMMY_SEQ};
+  codon::Seq from_seq_copy{original};
+  REQUIRE(original == from_seq_copy);
+  codon::Seq from_seq_move{from_seq_copy};
+  REQUIRE(original == from_seq_move);
+  codon::Seq* ptr_to_original = &original;
+  codon::Seq from_ptr_copy{ptr_to_original};
+  REQUIRE(original == from_ptr_copy);
+}
+
+
+

@@ -90,6 +90,8 @@ class Seq {
   // Equivalent to the amount of stored codons
   constexpr std::size_t size() const { return this->seq.size();}
 
+  // Returns the capacity of the underlying vector storing the sequence
+  constexpr std::size_t capacity() const { return this->seq.capacity();}
   // Return a string version of the sequence with additional formating options
   std::string to_str(IO_FORMAT fmt = fna_DNA, std::string_view dlm = "") const;
 
