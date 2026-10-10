@@ -111,6 +111,7 @@ class Seq {
         [](std::size_t acc, const codon::Codon& cdn){ return acc + cdn.length();}
         );
   }
+
   // Insert base at the specified position
   // Previous base and right-hand terminus is shifted right
   void insert_base(codon::Seq::base_iterator it, codon::base base);

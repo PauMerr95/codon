@@ -22,7 +22,17 @@ void seq_getter_subscript();
 void seq_getter_sizes();
 void seq_getter_to_str();
 void seq_getter_back_front();
+void seq_getter_subseq();
 
+void seq_setter_insertion();
+void seq_setter_push();
+void seq_setter_pop();
+
+void seq_overload_eq();
+
+void seq_modify_shift();
+void seq_modify_flip();
+void seq_modify_reverse();
 
 test::Result test::seq_test_basic() {
   try {
@@ -51,6 +61,7 @@ test::Result test::seq_basic_getters() {
   seq_getter_sizes();
   seq_getter_to_str();
   seq_getter_back_front();
+  seq_getter_subseq();
   return test::Result::Pass;
 }
 
@@ -152,3 +163,20 @@ void seq_getter_back_front() {
 }
 
 
+void seq_getter_subseq() {
+  codon::Seq dummy{"AAAGGGCCCTTT"};
+  codon::Seq prefix = dummy.subseq(dummy.begin(), dummy.end() - 1);
+  REQUIRE(prefix.to_str() == "AAAGGGCCC");
+  codon::Seq suffix = dummy.subseq(dummy.base_begin() + 2, dummy.base_end());
+  REQUIRE(suffix.to_str() == "AGGGCCCTTT");
+}
+
+void seq_setter_insertion();
+void seq_setter_push();
+void seq_setter_pop();
+
+void seq_overload_eq();
+
+void seq_modify_shift();
+void seq_modify_flip();
+void seq_modify_reverse();
