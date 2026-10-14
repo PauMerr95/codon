@@ -1,6 +1,8 @@
 #include "seq.h"
 
+#include <exception>
 #include <format>
+#include <iterator>
 #include <plog/Log.h>
 
 #include <algorithm>
@@ -258,12 +260,45 @@ void codon::Seq::flip_inplace(Seq::iterator it_start, Seq::iterator it_end) {
 // Inserts a base at the specified location
 // Expensive operation
 void codon::Seq::insert_base(codon::Seq::base_iterator it, codon::base base){
-  auto base_end = this->base_end();
-  while (it != base_end) {
-    enum base hopper = codon::base(*it);
-    *it = base;
-    base = hopper;
-    it++;
+  try {
+    codon::Codon& insert_loc = *it.get_ptr();
+    const bool incomplete_insert_loc = !insert_loc.is_full();
+    int swaps = insert_loc.length() - static_cast<int>(it.get_shift());
+    while (swaps--) {
+      codon::base tmp = *it;
+      *it = base;
+      base = tmp;
+      it++;
+    }
+    if (incomplete_insert_loc) {
+      insert_loc.insert_right(base);
+      return;
+    }
+    std::ranges::for_each(std::vector<codon::Codon>::iterator(it.get_ptr()),
+                          this->seq.end() - 1,
+                          [&base](codon::Codon& cdn) {
+                            base = cdn.squeeze_left(base);
+                          });
+    if (!this->back().is_full()) {
+      this->back().insert_left(base);
+    } else {
+      base = this->back().squeeze_left(base);
+      this->seq.emplace_back(codon::Codon(base));
+    }
+  } catch (const std::exception& err) {
+    throw std::runtime_error(std::format(
+          "Error in insert_base:\n"
+          "Iterator: {} | {}\n"
+          "Targeted Codon: {} | {}\n"
+          "base: {}\n"
+          "OriginalError Message:\n'{}'",
+          static_cast<std::ptrdiff_t>(it.get_ptr() - this->seq.data()),
+          static_cast<int>(it.get_shift()),
+          it.get_ptr()->get_inner_as_dna(),
+          it.get_ptr()->get_inner_as_bin().to_string(),
+          codon::base_to_char(base),
+          err.what()
+          ));
   }
 }
 
@@ -272,24 +307,38 @@ void codon::Seq::insert_base(codon::Seq::base_iterator it, codon::base base){
 // Expensive operation
 void Seq::insert_codon(codon::Seq::base_iterator it,
                        codon::Codon codon) {
-  // Equivalent to insert_codon with iterator
-  if (it.get_shift() == shift::ZERO) {
-    this->insert_codon(codon::Seq::iterator(it.get_ptr()), codon);
-    return;
-  }
-  std::queue<codon::base> base_buffer{};
-  while (!codon.is_empty()) {
-    base_buffer.emplace(codon.pop(shift::ZERO));
-  }
-  while (it != this->base_end()) {
-    base_buffer.emplace(codon::base(*it));
-    *it = base_buffer.front();
-    base_buffer.pop();
-    ++it;
-  }
-  while (!base_buffer.empty()) {
-    this->push_back(base_buffer.front());
-    base_buffer.pop();
+  try {
+    // Equivalent to insert_codon with iterator
+    if (it.get_shift() == shift::ZERO) {
+      this->insert_codon(codon::Seq::iterator(it.get_ptr()), codon);
+      return;
+    }
+    std::queue<codon::base> base_buffer{};
+    while (!codon.is_empty()) {
+      base_buffer.emplace(codon.pop(shift::ZERO));
+    }
+    while (it != this->base_end()) {
+      base_buffer.emplace(codon::base(*it));
+      *it = base_buffer.front();
+      base_buffer.pop();
+      ++it;
+    }
+    while (!base_buffer.empty()) {
+      this->push_back(base_buffer.front());
+      base_buffer.pop();
+    }
+  } catch (const std::exception& err) {
+    throw std::runtime_error(std::format(
+          "Error in insert_codon with base iterator:\n"
+          "Iterator: {} | {}\n"
+          "Targeted Codon: {} | {}\n"
+          "OriginalError Message:\n'{}'",
+          static_cast<std::ptrdiff_t>(it.get_ptr() - this->seq.data()),
+          static_cast<int>(it.get_shift()),
+          it.get_ptr()->get_inner_as_dna(),
+          it.get_ptr()->get_inner_as_bin().to_string(),
+          err.what()
+          ));
   }
 }
 
@@ -308,9 +357,8 @@ void Seq::insert_codon(codon::Seq::iterator it,
   }
 }
 
-void Seq::insert_seq(codon::Seq::iterator it,
-                     const codon::Seq& other) {
-  if (!other.size()) 
+void Seq::insert_seq(codon::Seq::iterator it, const codon::Seq& other) {
+  if (!other.size())
     throw std::runtime_error(
         "CDN_ERR: Invalid input for Seq::insert_seq()\n"
         "Expected insert size > 0 but received empty sequence.");
@@ -326,8 +374,76 @@ void Seq::insert_seq(codon::Seq::iterator it,
       while (!it_low->is_full() && !it_high->is_empty()) {
         it_low->insert_right(it_high->pop(shift::ZERO));
       }
+      it_low++;
+      it_high++;
+    }
+    if (this->back().is_empty()) this->seq.pop_back();
+  }
+}
+
+void Seq::insert_seq(codon::Seq::base_iterator bIt, const codon::Seq& other) {
+  if (!other.size())
+    throw std::runtime_error(
+        "CDN_ERR: Invalid input for Seq::insert_seq()\n"
+        "Expected insert size > 0 but received empty sequence.");
+  this->seq.reserve(this->size() + other.size() + 2);
+  // + 2 added as buffer to account for funky insert anneal combination
+
+  std::queue<codon::base> anneal_buffer{};
+  int shift_insert = static_cast<int>(bIt.get_shift());
+  codon::Codon& insert_locus = *bIt.get_ptr();
+  int n_removal = insert_locus.length() - shift_insert;
+  while (n_removal--) anneal_buffer.push(insert_locus.pop());
+  //switching to vector iterators
+  codon::Seq::iterator cdn_it{bIt.get_ptr()};
+  auto it_high = this->seq.insert(cdn_it.to_vec_const_iter() + 1,
+                                           other.seq.begin(),
+                                           other.seq.end());
+  //it_low and it_high is a sliding window
+  auto it_low = it_high - 1;
+  auto iter_anneal_right = it_high + other.size();
+  while (it_high != iter_anneal_right) {
+    while (!it_low->is_full()) {
+      if (it_high->is_empty()) {
+        it_high++;
+        continue;
+      }
+      it_low->insert_right(it_high->pop(shift::ZERO));
+    }
+  it_low++;
+  it_high++;
+  }
+  //after reaching the end of the insert anneal buffer is priorities for filling
+  while (!anneal_buffer.empty()) {
+    if (!it_high->is_full()) {
+      //insert in end of insert
+      it_high->insert_right(anneal_buffer.front());
+      anneal_buffer.pop();
+    } else {
+      codon::Seq::base_iterator bIt_right_anneal{&*it_high, codon::shift::ZERO};
+      this->insert_base(bIt_right_anneal, anneal_buffer.front());
+      anneal_buffer.pop();
     }
   }
+  if (!it_low->is_full()
+  || (!it_high->is_full() && iter_anneal_right != this->seq.end() - 1)) {
+    while (it_high != this->seq.end() && it_low != it_high) {
+      while (!it_low->is_full()) {
+        if (it_high->is_empty()) {
+          it_high++;
+          break;
+        }
+        it_low->insert_right(it_high->pop(shift::ZERO));
+      }
+      it_low++;
+    }
+  }
+  // TODO: Verify if this is necessary!
+  this->seq.erase(std::remove_if(
+        this->seq.begin(),
+        this->seq.end(),
+        [](const codon::Codon& cdn) {return cdn.is_empty();}),
+      this->seq.end());
 }
 
 void Seq::push_back(base base) {

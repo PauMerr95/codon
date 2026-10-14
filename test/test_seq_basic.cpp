@@ -38,7 +38,7 @@ test::Result test::seq_test_basic() {
   try {
     REQUIRE(seq_basic_constr() == Result::Pass);
     REQUIRE(seq_basic_getters() == Result::Pass);
-    // REQUIRE(seq_basic_setters()   == Result::Pass);
+    REQUIRE(seq_basic_setters() == Result::Pass);
     // REQUIRE(seq_basic_overloads() == Result::Pass);
     // REQUIRE(seq_basic_modifiers() == Result::Pass);
   } catch (const std::exception& e) {
@@ -65,7 +65,13 @@ test::Result test::seq_basic_getters() {
   return test::Result::Pass;
 }
 
-test::Result test::seq_basic_setters()   { return test::Result::Pass; }
+test::Result test::seq_basic_setters() {
+  seq_setter_insertion();
+  seq_setter_push();
+  //seq_setter_pop();
+  return test::Result::Pass;
+}
+
 test::Result test::seq_basic_overloads() { return test::Result::Pass; }
 test::Result test::seq_basic_modifiers() { return test::Result::Pass; }
 
@@ -171,8 +177,60 @@ void seq_getter_subseq() {
   REQUIRE(suffix.to_str() == "AGGGCCCTTT");
 }
 
-void seq_setter_insertion();
-void seq_setter_push();
+void seq_setter_insertion() {
+  codon::Seq sequence{"AAAGGGCCCAAAGGGCCC"};
+  codon::base insert_base = codon::base::T;
+  codon::Codon insert_cdn{"TT"};
+  codon::Seq insert_seq{"TTTT"};
+
+  sequence.insert_base(sequence.base_begin() + 3, insert_base);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "AAA-TGG-GCC-CAA-AGG-GCC-C");
+  sequence.insert_base(sequence.base_end() - 1, insert_base);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "AAA-TGG-GCC-CAA-AGG-GCC-TC");
+  sequence.insert_codon(sequence.begin(), insert_cdn);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "TTA-AAT-GGG-CCC-AAA-GGG-CCT-C");
+  sequence.insert_codon(sequence.base_end() - 1, insert_cdn);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "TTA-AAT-GGG-CCC-AAA-GGG-CCT-TTC");
+  sequence.insert_codon(sequence.base_begin() + 7, insert_cdn);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "TTA-AAT-GTT-GGC-CCA-AAG-GGC-CTT-TC");
+  sequence.insert_seq(sequence.end() - 1, insert_seq);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "TTA-AAT-GTT-GGC-CCA-AAG-GGC-CTT-TTT-TTC");
+  sequence.insert_seq(sequence.base_begin() + 11, insert_seq);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-")
+      == "TTA-AAT-GTT-GGT-TTT-CCC-AAA-GGG-CCT-TTT-TTT-C");
+}
+
+void seq_setter_push() {
+  codon::Seq sequence{"AAA"};
+  sequence.push_back(codon::Seq{"GGGG"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-G");
+  sequence.push_back(codon::Seq{"CCC"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-C");
+  sequence.push_back(codon::Seq{"T"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CT");
+
+  sequence.push_back(codon::Codon{"AA"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-A");
+  sequence.push_back(codon::Codon{"G"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AG");
+  sequence.push_back(codon::Codon{"C"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC");
+  sequence.push_back(codon::Codon{"TTT"});
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC-TTT");
+
+  sequence.push_back(codon::base::A);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC-TTT-A");
+  sequence.push_back(codon::base::G);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC-TTT-AG");
+  sequence.push_back(codon::base::C);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC-TTT-AGC");
+}
 void seq_setter_pop();
 
 void seq_overload_eq();
