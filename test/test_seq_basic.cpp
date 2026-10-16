@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -281,7 +282,29 @@ test::Result verify_pop_codon() {
   return test::Result::Pass;
 }
 
-test::Result verify_pop_base() { return test::Result::Pass; }
+test::Result verify_pop_base() {
+  codon::Seq sequence{"AAAAAAAAACAAAAAGAATAAAAA"};
+
+  // AAA-AAA-AAA-CAA-AAA-GAA-TAA-AAA
+  // ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+  codon::base popped = sequence.pop_base(std::next(sequence.base_begin(), 9));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-AAA-AAA-AAA-AAG-AAT-AAA-AA");
+  REQUIRE(codon::base_to_char(popped) == 'C');
+
+  // AAA-AAA-AAA-AAA-AAG-AAT-AAA-AA
+  // ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+  popped = sequence.pop_base(std::next(sequence.base_begin(), 14));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-AAA-AAA-AAA-AAA-ATA-AAA-A");
+  REQUIRE(codon::base_to_char(popped) == 'G');
+
+  // AAA-AAA-AAA-AAA-AAA-ATA-AAA-A
+  // ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+  popped = sequence.pop_base(std::next(sequence.base_begin(), 16));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-AAA-AAA-AAA-AAA-AAA-AAA");
+  REQUIRE(codon::base_to_char(popped) == 'T');
+
+  return test::Result::Pass;
+}
 
 void seq_setter_pop() {
   REQUIRE(verify_pop_seq()   == test::Result::Pass);
