@@ -120,24 +120,27 @@ std::string codon::Seq::to_str(IO_FORMAT fmt, std::string_view dlm) const {
 void codon::Seq::lshift_inplace(std::size_t amount) {
   if (this->seq.empty()) {
     throw std::runtime_error(
-        "CDN_ERR: Invalid use of lshift:\n"
+        "SEQ_ERR: Invalid use of lshift:\n"
         "Sequence is empty");
   }
   int n = static_cast<int>(amount % 3);
-  if (this->seq[0].is_full() || this->seq[0].length() + n > 3) {
+  if (!n) return;
+  if (this->front().is_full() || this->front().length() + n > 3) {
     throw std::runtime_error(
-        "CDN_ERR: Invalid use of lshift:\n"
+        "SEQ_ERR: Invalid use of lshift:\n"
         "lshift operation exceeds available space in first codon."
         );
   }
-  base hopping_base{this->seq.back().get_base(shift::ZERO)};
-  while (--n) {
+  base hopping_base;
+  while (n-- > 0) {
+    hopping_base = this->seq.back().pop(shift::ZERO);
     auto begin = this->seq.rbegin() + 1;
     auto final = this->seq.rend()   - 1;
     std::for_each(begin, final, [&hopping_base](Codon& cdn){
           hopping_base = cdn.squeeze_right(hopping_base);
         });
-    this->seq[0].insert_right(hopping_base);
+    this->front().insert_right(hopping_base);
+    if (this->back().is_empty()) this->seq.pop_back();
   }
 }
 
@@ -146,15 +149,14 @@ void codon::Seq::lshift_inplace(std::size_t amount) {
 void codon::Seq::rshift_inplace(std::size_t amount) {
   if (this->seq.empty()) {
     throw std::runtime_error(
-        "CDN_ERR: Invalid use of rshift:\n"
+        "SEQ_ERR: Invalid use of rshift:\n"
         "Sequence is empty");
   }
   int n = static_cast<int>(amount % 3);
-  if (this->seq.back().is_full()
-      || this->seq.back().length() + n > 3) {
-  }
-  base hopping_base{this->seq[0].get_base()};
-  while (--n) {
+  if (!n) return;
+  base hopping_base;
+  while (n-- > 0) {
+    hopping_base = this->front().pop();
     auto begin = this->seq.begin() + 1;
     auto final = this->seq.end()   - 1;
     std::for_each(begin, final, [&hopping_base](Codon& cdn){
@@ -166,13 +168,14 @@ void codon::Seq::rshift_inplace(std::size_t amount) {
     } else {
       final->insert_left(hopping_base);
     }
+    if(this->front().is_empty()) this->seq.erase(this->seq.begin());
   }
 }
 
 // Returns a shifted copy of the sequence, which will be shifted by specified amount % 3 to the left.
 // Underlying operations can throw if sequence is 'gappy'
 codon::Seq codon::Seq::lshift(std::size_t amount) {
-  codon::Seq tmp{this};
+  codon::Seq tmp = this;
   tmp.lshift_inplace(amount);
   return tmp;
 }
@@ -180,7 +183,7 @@ codon::Seq codon::Seq::lshift(std::size_t amount) {
 // Returns a shifted copy of the sequence, which will be shifted by specified amount % 3 to the left.
 // Underlying operations can throw if sequence is 'gappy'
 codon::Seq codon::Seq::rshift(std::size_t amount) {
-  codon::Seq tmp{this};
+  codon::Seq tmp = this;
   tmp.rshift_inplace(amount);
   return tmp;
 }
@@ -196,12 +199,12 @@ void Seq::reverse_inplace(codon::Seq::iterator it_start,
                           codon::Seq::iterator it_end) {
   if (it_start < this->begin() || it_end > this->end()) {
     throw std::invalid_argument(
-        "CDN_ERR: reverse/reverse_inplace:\n"
+        "SEQ_ERR: reverse/reverse_inplace:\n"
         "Out of bound iterators passed.");
   }
   if (it_start > it_end) {
     throw std::invalid_argument(
-        "CDN_ERR: reverse/reverse_inplace:\n"
+        "SEQ_ERR: reverse/reverse_inplace:\n"
         "Iterators are passed in wrong order. it_start > it_end.");
   }
   while (it_start != it_end) {
@@ -361,7 +364,7 @@ void Seq::insert_codon(codon::Seq::iterator it,
 void Seq::insert_seq(codon::Seq::iterator it, const codon::Seq& other) {
   if (!other.size())
     throw std::runtime_error(
-        "CDN_ERR: Invalid input for Seq::insert_seq()\n"
+        "SEQ_ERR: Invalid input for Seq::insert_seq()\n"
         "Expected insert size > 0 but received empty sequence.");
   this->seq.reserve(this->size() + other.size());
   //switching to vector iterators
@@ -385,7 +388,7 @@ void Seq::insert_seq(codon::Seq::iterator it, const codon::Seq& other) {
 void Seq::insert_seq(codon::Seq::base_iterator bIt, const codon::Seq& other) {
   if (!other.size())
     throw std::runtime_error(
-        "CDN_ERR: Invalid input for Seq::insert_seq()\n"
+        "SEQ_ERR: Invalid input for Seq::insert_seq()\n"
         "Expected insert size > 0 but received empty sequence.");
   this->seq.reserve(this->size() + other.size() + 2);
   // + 2 added as buffer to account for funky insert anneal combination
@@ -478,7 +481,7 @@ void Seq::push_back(Seq sequence) {
   }
 
   if (!sequence.size()) throw std::runtime_error(
-      "CDN_ERR: Invalid input in Seq::push_back(codon::Seq)\n"
+      "SEQ_ERR: Invalid input in Seq::push_back(codon::Seq)\n"
       "Expected a sequence passed of size > 0 but received empty argument."
       );
 

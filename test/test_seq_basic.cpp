@@ -41,7 +41,7 @@ test::Result test::seq_test_basic() {
     REQUIRE(seq_basic_getters() == Result::Pass);
     REQUIRE(seq_basic_setters() == Result::Pass);
     REQUIRE(seq_basic_overloads() == Result::Pass);
-    // REQUIRE(seq_basic_modifiers() == Result::Pass);
+    REQUIRE(seq_basic_modifiers() == Result::Pass);
   } catch (const std::exception& e) {
     std::cerr << "Error encountered in seq_basic:\n" << e.what();
     return Result::Fail;
@@ -73,8 +73,17 @@ test::Result test::seq_basic_setters() {
   return test::Result::Pass;
 }
 
-test::Result test::seq_basic_overloads() { return test::Result::Pass; }
-test::Result test::seq_basic_modifiers() { return test::Result::Pass; }
+test::Result test::seq_basic_overloads() {
+  seq_overload_eq();
+  return test::Result::Pass;
+}
+
+test::Result test::seq_basic_modifiers() {
+  seq_modify_shift();
+  seq_modify_flip();
+  seq_modify_reverse();
+  return test::Result::Pass;
+}
 
 void seq_constr_from_sv() {
   codon::Seq dummy{tconst::EcoliK12_recA_dna};
@@ -320,6 +329,50 @@ void seq_overload_eq() {
   REQUIRE(seq_one != seq_three);
 }
 
-void seq_modify_shift();
-void seq_modify_flip();
-void seq_modify_reverse();
+void seq_modify_shift() {
+  codon::Seq original{"AGTTACGAGCCCTATTA"};
+  codon::Seq sequence = original;
+//  "AGT-TAC-GAG-CCC-TAT-TA"
+  codon::Seq r_seq = sequence.rshift();
+  REQUIRE(r_seq.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AG-TTA-CGA-GCC-CTA-TTA");
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGT-TAC-GAG-CCC-TAT-TA");
+  sequence.rshift_inplace();
+  REQUIRE(r_seq.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+
+  codon::Seq l_seq = sequence.lshift();
+  REQUIRE(l_seq.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGT-TAC-GAG-CCC-TAT-TA");
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AG-TTA-CGA-GCC-CTA-TTA");
+  sequence.lshift_inplace();
+  REQUIRE(l_seq.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+
+  REQUIRE(original.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+
+  r_seq = sequence.rshift(2);
+  REQUIRE(r_seq.to_str(codon::IO_FORMAT::fna_DNA, "-") == "A-GTT-ACG-AGC-CCT-ATT-A");
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGT-TAC-GAG-CCC-TAT-TA");
+  sequence.rshift_inplace(2);
+  REQUIRE(r_seq.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+  REQUIRE(sequence.rshift(3) == sequence);
+
+  l_seq = sequence.lshift(2);
+  REQUIRE(l_seq.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGT-TAC-GAG-CCC-TAT-TA");
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "A-GTT-ACG-AGC-CCT-ATT-A");
+  sequence.lshift_inplace(2);
+  REQUIRE(l_seq.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+  REQUIRE(sequence.lshift(3) == sequence);
+
+
+  codon::Seq empty{codon::Codon("VOID")};
+  REQUIRE_THROWS(empty.rshift());
+  REQUIRE_THROWS(empty.lshift());
+  REQUIRE_THROWS(original.lshift());
+}
+
+void seq_modify_flip() {}
+
+void seq_modify_reverse() {}
