@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "codon.h"
-#include "plog/Log.h"
 #include "seq.h"
 #include "testing.h"
 
@@ -41,7 +40,7 @@ test::Result test::seq_test_basic() {
     REQUIRE(seq_basic_constr() == Result::Pass);
     REQUIRE(seq_basic_getters() == Result::Pass);
     REQUIRE(seq_basic_setters() == Result::Pass);
-    // REQUIRE(seq_basic_overloads() == Result::Pass);
+    REQUIRE(seq_basic_overloads() == Result::Pass);
     // REQUIRE(seq_basic_modifiers() == Result::Pass);
   } catch (const std::exception& e) {
     std::cerr << "Error encountered in seq_basic:\n" << e.what();
@@ -312,7 +311,14 @@ void seq_setter_pop() {
   REQUIRE(verify_pop_base()  == test::Result::Pass);
 }
 
-void seq_overload_eq();
+void seq_overload_eq() {
+  const codon::Seq seq_one{"AGTCAC"};
+  const codon::Seq seq_two = seq_one;
+  const codon::Seq seq_three{"AGCCAC"};
+
+  REQUIRE(seq_one == seq_two);
+  REQUIRE(seq_one != seq_three);
+}
 
 void seq_modify_shift();
 void seq_modify_flip();
