@@ -1,5 +1,6 @@
 #include "seq.h"
 
+#include <cstdlib>
 #include <exception>
 #include <format>
 #include <iterator>
@@ -502,29 +503,48 @@ base Seq::pop_base(base_iterator b_it) {
 
 
 Codon Seq::pop_codon(base_iterator b_it, int size_cut) {
-  //BUG: Add Logic to catch sizecut overflow past end of sequence
   if (size_cut > 3 || size_cut < 1) throw std::runtime_error(std::format(
-      "CDN_ERR: Invalid Input in Seq::pop_codon(base_iter, size_cut)\n"
+      "SEQ_ERR: Invalid Input in Seq::pop_codon(base_iter, size_cut)\n"
       "Expected size_cut between 1-3 but received '{}'",size_cut));
+  if (std::distance(b_it, this->base_end()) < size_cut) throw std::runtime_error(std::format(
+      "SEQ_ERR: Attempted to cutout Codon of size '{}' but provided an iterator "
+      "that is too close to the sequence end. Maximum cutout possible at location "
+      "is '{}'", size_cut, std::distance(b_it, this->base_end())));
 
   Codon popped_codon{"VOID"};
-  auto iter_cut = b_it + size_cut;
-  while (b_it != iter_cut--) {
-    popped_codon.insert_right(
-        iter_cut.get_ptr()->pop(iter_cut.get_shift())
-    );
-  }
-  auto cdn_iter_left  = Seq::iterator(b_it.get_ptr());
-  auto cdn_iter_right = cdn_iter_left + 1;
+  codon::Codon& left_cdn = *b_it.get_ptr();
+  codon::Codon& right_cdn = *(b_it.get_ptr() + 1);
+  int rm_n_left = left_cdn.length() - static_cast<int>(b_it.get_shift());
+  int rm_n_right = size_cut - rm_n_left;
 
-  while (cdn_iter_right != this->end()) {
-    while (!cdn_iter_left->is_full() && !cdn_iter_right->is_empty()) {
-      cdn_iter_left->insert_right(
-          cdn_iter_left->pop(shift::ZERO));
+  while(rm_n_left-- > 0) popped_codon.insert_right(left_cdn.pop());
+  while(rm_n_right-- > 0) popped_codon.insert_right(right_cdn.pop(codon::shift::ZERO));
+
+  auto cdn_it_left  = std::vector<codon::Codon>::iterator(b_it.get_ptr());
+  auto cdn_it_right = std::next(cdn_it_left);
+
+  while (cdn_it_right != this->seq.end()) {
+    if (cdn_it_left->is_empty()) {
+      cdn_it_right = this->seq.erase(cdn_it_left);
+      cdn_it_left = std::prev(cdn_it_right);
+      if (cdn_it_left->is_full()
+          && (cdn_it_right->is_full()
+              || cdn_it_right == std::prev(this->seq.end()))) {
+        break;  // if end conditions are satisfied by the deletion
+      }
+      continue; // closing annealing gap further
     }
-    ++cdn_iter_left;
-    ++cdn_iter_right;
+    while (!cdn_it_left->is_full() && !cdn_it_right->is_empty()) {
+      cdn_it_left->insert_right(cdn_it_right->pop(shift::ZERO));
+    }
+    if (!cdn_it_left->is_full() && cdn_it_right->is_empty()) {
+      ++cdn_it_right;
+    } else {
+      ++cdn_it_left;
+      ++cdn_it_right;
+    }
   }
+  if (this->back().is_empty()) this->seq.pop_back(); // failsafe
   return popped_codon;
 }
 
@@ -555,21 +575,29 @@ codon::Seq Seq::pop_seq(codon::Seq::base_iterator bIt_start, codon::Seq::base_it
   Codon& cdn_start = *bIt_start.get_ptr();
   Codon& cdn_end   = *bIt_end.get_ptr();
 
-  int delete_at_begin = cdn_start.length() - 1 - static_cast<int>(bIt_start.get_shift());
+  int delete_at_begin = cdn_start.length() - static_cast<int>(bIt_start.get_shift());
   int delete_at_end   = static_cast<int>(bIt_end.get_shift());
 
-  while (--delete_at_begin) {cdn_start.pop(shift::MAX_SHIFT);}
-  while (--delete_at_end) {cdn_end.pop(shift::ZERO);}
+  while (delete_at_begin--) {cdn_start.pop(shift::MAX_SHIFT);}
+  while (delete_at_end--) {cdn_end.pop(shift::ZERO);}
 
-  auto iter_vec_right = this->seq.erase(bIt_start.to_vec_const_iter(),
+  auto cdn_it_right = this->seq.erase(std::next(bIt_start.to_vec_const_iter()),
                                         bIt_end.to_vec_const_iter());
-  auto cdn_it_right = Seq::iterator(&*iter_vec_right);
-  auto cdn_it_left = cdn_it_right - 1;
-  
-  while (cdn_it_right != this->end()) {
+  auto cdn_it_left = std::prev(cdn_it_right);
+
+  while (cdn_it_right != this->seq.end()) {
+    if (cdn_it_left->is_empty()) {
+      cdn_it_right = this->seq.erase(cdn_it_left);
+      cdn_it_left = std::prev(cdn_it_right);
+      if (cdn_it_left->is_full()
+          && (cdn_it_right->is_full()
+              || cdn_it_right == std::prev(this->seq.end()))) {
+        break;  // if end conditions are satisfied by the deletion
+      }
+      continue; // closing annealing gap further
+    }
     while (!cdn_it_left->is_full() && !cdn_it_right->is_empty()) {
-      cdn_it_left->insert_right(
-          cdn_it_left->pop(shift::ZERO));
+      cdn_it_left->insert_right(cdn_it_right->pop(shift::ZERO));
     }
     if (!cdn_it_left->is_full() && cdn_it_right->is_empty()) {
       ++cdn_it_right;
@@ -578,10 +606,7 @@ codon::Seq Seq::pop_seq(codon::Seq::base_iterator bIt_start, codon::Seq::base_it
       ++cdn_it_right;
     }
   }
-  this->seq.erase(std::remove_if(cdn_it_left.to_vec_iter(),
-                                 cdn_it_right.to_vec_iter(),
-                                 [](const Codon& cdn){ return cdn.is_empty(); }),
-                  this->seq.end());
+  if (this->back().is_empty()) this->seq.pop_back(); // failsafe
   return popped_seq;
 }
 

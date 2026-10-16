@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "codon.h"
+#include "plog/Log.h"
 #include "seq.h"
 #include "testing.h"
 
@@ -68,7 +69,7 @@ test::Result test::seq_basic_getters() {
 test::Result test::seq_basic_setters() {
   seq_setter_insertion();
   seq_setter_push();
-  //seq_setter_pop();
+  seq_setter_pop();
   return test::Result::Pass;
 }
 
@@ -231,7 +232,62 @@ void seq_setter_push() {
   sequence.push_back(codon::base::C);
   REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-CTA-AGC-TTT-AGC");
 }
-void seq_setter_pop();
+test::Result verify_pop_seq() {
+  codon::Seq sequence{"AAAGGGGCCCTAAGCTTTAGC"};
+
+  codon::Seq popped = sequence.pop_seq(sequence.begin(), std::next(sequence.begin(), 2));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "GCC-CTA-AGC-TTT-AGC");
+  REQUIRE(popped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG");
+  popped = sequence.pop_seq(sequence.begin(), 3);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "TTT-AGC");
+  REQUIRE(popped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "GCC-CTA-AGC");
+  REQUIRE(popped.size() == 3);
+  REQUIRE(popped.trulength() == 9);
+
+  sequence = codon::Seq{"AAAGGGGCCCTAAGCTTTAGC"};
+  popped = sequence.pop_seq(std::next(sequence.base_begin(), 1),
+                            std::next(sequence.base_begin(), 8));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "ACC-TAA-GCT-TTA-GC");
+  REQUIRE(popped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAG-GGG-C");
+  popped = sequence.pop_seq(std::next(sequence.base_begin(), 2), 4);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "ACG-CTT-TAG-C");
+  REQUIRE(popped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "CTA-A");
+  REQUIRE(popped.length() == 4);
+  REQUIRE(popped.trulength() == 4);
+
+  return test::Result::Pass;
+}
+
+test::Result verify_pop_codon() {
+  codon::Seq sequence{"AAAGGGGCCCTAAGCTTTAGC"};
+  // AAA-GGG-GCC-CTA-AGC-TTT-AGC
+  // ~~~~~~~~~~~~^^^~~~~~~~~~~~~~~
+  codon::Codon popped = sequence.pop_codon(std::next(sequence.begin(), 3));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-AGC-TTT-AGC");
+  REQUIRE(popped.get_inner_as_dna() == "CTA");
+
+  // AAA-GGG-GCC-AGC-TTT-AGC
+  // ~~~~~~~~~~^~^^~~~~~~~~~~~
+  popped = sequence.pop_codon(std::next(sequence.base_begin(), 8));
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GCC-TTT-AGC");
+  REQUIRE(popped.get_inner_as_dna() == "CAG");
+
+  // AAA-GGG-GCC-TTT-AGC
+  // ~~~~~~~~~^^~~~~~~~~~~~~
+  popped = sequence.pop_codon(std::next(sequence.base_begin(), 7), 2);
+  REQUIRE(sequence.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AAA-GGG-GTT-TAG-C");
+  REQUIRE(popped.get_inner_as_dna() == "CC");
+
+  return test::Result::Pass;
+}
+
+test::Result verify_pop_base() { return test::Result::Pass; }
+
+void seq_setter_pop() {
+  REQUIRE(verify_pop_seq()   == test::Result::Pass);
+  REQUIRE(verify_pop_codon() == test::Result::Pass);
+  REQUIRE(verify_pop_base()  == test::Result::Pass);
+}
 
 void seq_overload_eq();
 
