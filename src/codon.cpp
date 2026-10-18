@@ -215,24 +215,3 @@ void codon::Codon::reverse_inplace() {
 
   this->bases = to_uint8(reversed);
 }
-
-// Flips and returns a copy of the codon
-// Will preserve marker but also flip undefined areas
-// @return Codon: the flipped copy
-codon::Codon codon::Codon::flip() const {
-  codon::Codon copy(this);
-  copy.flip_inplace();
-  return copy;
-}
-
-// Flips the codon inplace
-// Will preserve marker but also flip undefined areas
-void codon::Codon::flip_inplace() {
-  unsigned int cdn = to_uint(this->bases);
-  switch (this->length()) {
-    case 1: cdn ^= to_uint(codon::mask::base_1); break;
-    case 2: cdn ^= to_uint(codon::mask::r_half); break;
-    case 3: cdn ^= to_uint(codon::mask::all_bs); break;
-  }
-  this->bases = to_uint8(cdn);
-}

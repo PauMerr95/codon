@@ -178,8 +178,9 @@ class Codon {
   codon::Codon reverse() const;
   void reverse_inplace();
 
-  codon::Codon flip() const;
-  void flip_inplace();
+  constexpr codon::Codon flip() const;
+  constexpr void flip_inplace();
+  constexpr void flip_base(shift shift);
 
   constexpr codon::Codon operator=(const codon::Codon& other) {
     this->bases = other.bases;
@@ -212,6 +213,17 @@ class base_ref{
   constexpr base_ref& operator=(const base_ref& bref) const {
     return *this = codon::base(bref);
   }
+  constexpr base_ref operator~() const {
+    codon::base_ref copy{_codon, _shift};
+    copy.flip();
+    return copy;
+  }
+  constexpr void flip() {
+    codon::base base = _codon->get_base(_shift);
+    base = static_cast<codon::base>(to_uint(base) ^ to_uint(codon::mask::base_1));
+    _codon->set_base(_shift, base);
+  }
+
   friend void swap(const base_ref& a, const base_ref& b) {
     base tmp = a;
     a = codon::base(b);
@@ -464,6 +476,45 @@ constexpr void codon::Codon::set_base(codon::shift shift, codon::base base) {
   mask <<= amount_shifts;
   insert <<= amount_shifts;
   this->bases = to_uint8((cdn & ~mask) | insert);
+}
+
+// Flips and returns a copy of the codon
+// Will preserve marker but also flip undefined areas
+// @return Codon: the flipped copy
+constexpr codon::Codon codon::Codon::flip() const {
+  codon::Codon copy(this);
+  copy.flip_inplace();
+  return copy;
+}
+
+// Flips the codon inplace
+// Will preserve marker but also flip undefined areas
+constexpr void codon::Codon::flip_inplace() {
+  unsigned int cdn = to_uint(this->bases);
+  switch (this->length()) {
+    case 1: cdn ^= to_uint(codon::mask::base_1); break;
+    case 2: cdn ^= to_uint(codon::mask::r_half); break;
+    case 3: cdn ^= to_uint(codon::mask::all_bs); break;
+  }
+  this->bases = to_uint8(cdn);
+}
+
+// Flips a single base of a codon inplace
+constexpr void codon::Codon::flip_base(shift shift) {
+  int s = static_cast<int>(shift);
+  int l = this->length();
+  if (l <= s) throw std::runtime_error(std::format(
+        "CDN_ERROR: Codon::flip_base('{}') called but size is only '{}'\n"
+        "Codon: {} | {}",
+        s, l, this->get_inner_as_dna(), this->get_inner_as_bin().to_string()
+        ));
+  unsigned int cdn = to_uint(this->bases);
+  switch (l - s) {
+    case 1: cdn ^= to_uint(codon::mask::base_1); break;
+    case 2: cdn ^= to_uint(codon::mask::base_2); break;
+    case 3: cdn ^= to_uint(codon::mask::base_3); break;
+  }
+  this->bases = to_uint8(cdn);
 }
 
 } // namespace codon

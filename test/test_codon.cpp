@@ -430,9 +430,9 @@ void modifiers_pop() {
 void modifiers_flip() {
   codon::Codon meow{"CAT"};
   meow.flip_inplace();
-  REQUIRE(meow.to_str() == "GTA");
-  REQUIRE(meow.flip().to_str() == "CAT");
-  REQUIRE(meow.to_str() == "GTA");
+  REQUIRE(meow.get_inner_as_dna() == "GTA");
+  REQUIRE(meow.flip().get_inner_as_dna() == "CAT");
+  REQUIRE(meow.get_inner_as_dna() == "GTA");
 
   codon::Codon strong_bond{"GC"};
   strong_bond.flip_inplace();
@@ -445,6 +445,30 @@ void modifiers_flip() {
   REQUIRE(lonely_base.to_str() == "A");
   REQUIRE(lonely_base.flip().to_str() == "T");
   REQUIRE(lonely_base.to_str() == "A");
+
+  //GTA
+  meow.flip_base(codon::shift::ZERO);
+  REQUIRE(meow.get_inner_as_dna() == "CTA");
+  meow.flip_base(codon::shift::ONE);
+  REQUIRE(meow.get_inner_as_dna() == "CAA");
+  meow.flip_base(codon::shift::TWO);
+  REQUIRE(meow.get_inner_as_dna() == "CAT");
+  REQUIRE_THROWS(meow.flip_base(codon::shift::MAX_SHIFT));
+
+  //CG
+  strong_bond.flip_base(codon::shift::ZERO);
+  REQUIRE(strong_bond.get_inner_as_dna() == "GG");
+  strong_bond.flip_base(codon::shift::ONE);
+  REQUIRE(strong_bond.get_inner_as_dna() == "GC");
+  REQUIRE_THROWS(strong_bond.flip_base(codon::shift::TWO));
+  REQUIRE_THROWS(strong_bond.flip_base(codon::shift::MAX_SHIFT));
+
+  //A
+  lonely_base.flip_base(codon::shift::ZERO);
+  REQUIRE(lonely_base.get_inner_as_dna() == "T");
+  REQUIRE_THROWS(lonely_base.flip_base(codon::shift::ONE));
+  REQUIRE_THROWS(lonely_base.flip_base(codon::shift::TWO));
+  REQUIRE_THROWS(lonely_base.flip_base(codon::shift::MAX_SHIFT));
 }
 
 void modifiers_reverse() {
