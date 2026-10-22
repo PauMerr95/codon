@@ -177,8 +177,8 @@ class Seq {
   codon::Seq reverse() const;
 
   //Copies and returns a variant sequence with the specified range reversed
-  codon::Seq reverse(codon::Seq::iterator it_start,
-                     codon::Seq::iterator it_end) const;
+  codon::Seq reverse(codon::Seq::const_iterator it_start,
+                     codon::Seq::const_iterator it_end) const;
 
   //Reverses the sequence inplace
   void reverse_inplace();
@@ -190,13 +190,20 @@ class Seq {
   codon::Seq flip() const;
 
   //Copies and returns a variant sequence with the specified range flipped
-  codon::Seq flip(codon::Seq::iterator it_start, codon::Seq::iterator it_end) const;
+  codon::Seq flip(codon::Seq::const_iterator it_start, codon::Seq::const_iterator it_end) const;
+
+  //Copies and returns a variant sequence with the specified range flipped
+  codon::Seq flip(codon::Seq::const_base_iterator bIt_start, codon::Seq::const_base_iterator bIt_end) const;
 
   //Flips the sequence inplace
   void flip_inplace();
 
   //Flips the specified range of the sequence inplace
   void flip_inplace(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
+
+  //Flips the specified range of the sequence inplace
+  void flip_inplace(codon::Seq::base_iterator bIt_start, codon::Seq::base_iterator bIt_end);
+
 
   // Iterator class for iterating over Codons in a Seq
   template <bool Const>
@@ -334,6 +341,7 @@ class Seq {
            + static_cast<difference_type>(_shift)
            - static_cast<difference_type>(other._shift);
     }
+
     codon_t* get_ptr() const { return _ptr;}
     codon::shift get_shift() const { return _shift;}
 

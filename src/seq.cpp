@@ -226,24 +226,38 @@ codon::Seq Seq::reverse() const {
 }
 
 //Returns a copy of the sequence with [it_start, it_end) reversed.
-codon::Seq codon::Seq::reverse(codon::Seq::iterator it_start,
-                   codon::Seq::iterator it_end) const {
+codon::Seq codon::Seq::reverse(codon::Seq::const_iterator it_start,
+    codon::Seq::const_iterator it_end) const {
   Seq tmp{this};
-  tmp.reverse_inplace(it_start, it_end);
+  auto tmp_start = std::next(tmp.begin(), std::distance(cbegin(), it_start));
+  auto tmp_end   = std::next(tmp.begin(), std::distance(cbegin(), it_end));
+  tmp.reverse_inplace(tmp_start, tmp_end);
   return tmp;
 }
 
 // Returns a flipped copy of the sequence.
 codon::Seq codon::Seq::flip() const {
-  Seq tmp(this);
+  Seq tmp{this};
   tmp.flip_inplace();
   return tmp;
 }
 
 // Returns a copy of the sequence with [it_start, it_end) flipped.
-codon::Seq codon::Seq::flip(Seq::iterator it_start, Seq::iterator it_end) const {
-  Seq tmp(this);
-  tmp.flip_inplace(it_start, it_end);
+codon::Seq codon::Seq::flip(Seq::const_iterator it_start, Seq::const_iterator it_end) const {
+  Seq tmp{this};
+  auto tmp_start = std::next(tmp.begin(), std::distance(cbegin(), it_start));
+  auto tmp_end   = std::next(tmp.begin(), std::distance(cbegin(), it_end));
+  tmp.flip_inplace(tmp_start, tmp_end);
+  return tmp;
+}
+
+//Copies and returns a variant sequence with the specified range flipped
+codon::Seq codon::Seq::flip(codon::Seq::const_base_iterator bIt_start,
+                            codon::Seq::const_base_iterator bIt_end) const {
+  Seq tmp{this};
+  auto tmp_start = std::next(tmp.base_begin(), std::distance(base_cbegin(), bIt_start));
+  auto tmp_end   = std::next(tmp.base_begin(), std::distance(base_cbegin(), bIt_end));
+  tmp.flip_inplace(tmp_start, tmp_end);
   return tmp;
 }
 
@@ -259,6 +273,16 @@ void codon::Seq::flip_inplace(Seq::iterator it_start, Seq::iterator it_end) {
       it_end,
       [](Codon& cdn){cdn.flip_inplace();}
   );
+}
+
+//Flips the specified range of the sequence inplace
+void codon::Seq::flip_inplace(codon::Seq::base_iterator bIt_start,
+                              codon::Seq::base_iterator bIt_end) {
+  //Not using std::ranges::transform(start, end, complement) because it would add read write overhead
+  //Not using std::ranges::for_each(start, end, [](auto&&) -> void because thats a hack
+  for (auto it = bIt_start; bIt_start != bIt_end; ++bIt_start) {
+    (*bIt_start).flip();
+  }
 }
 
 // Inserts a base at the specified location

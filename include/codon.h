@@ -218,11 +218,7 @@ class base_ref{
     copy.flip();
     return copy;
   }
-  constexpr void flip() {
-    codon::base base = _codon->get_base(_shift);
-    base = static_cast<codon::base>(to_uint(base) ^ to_uint(codon::mask::base_1));
-    _codon->set_base(_shift, base);
-  }
+  constexpr void flip() const {_codon->flip_base(_shift);}
 
   friend void swap(const base_ref& a, const base_ref& b) {
     base tmp = a;
@@ -517,4 +513,12 @@ constexpr void codon::Codon::flip_base(shift shift) {
   this->bases = to_uint8(cdn);
 }
 
+
+constexpr base complement(base b) {
+  return to_base(to_uint(b) ^ 0b11u);
+}
+
+constexpr Codon complement(Codon cdn) {
+  return cdn.flip();
+}
 } // namespace codon

@@ -373,6 +373,36 @@ void seq_modify_shift() {
   REQUIRE_THROWS(original.lshift());
 }
 
-void seq_modify_flip() {}
+void seq_modify_flip() {
+  codon::Seq original{"AGCTAGA"};
+  codon::Seq sequence = original;
+  codon::Seq flipped = sequence.flip();
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "TCG-ATC-T");
+  REQUIRE(sequence == original);
+  flipped.flip_inplace();
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+  REQUIRE(original.to_str(codon::IO_FORMAT::fna_DNA, "-")
+       == sequence.to_str(codon::IO_FORMAT::fna_DNA, "-"));
+
+  flipped = sequence.flip(
+      std::next(sequence.begin()),
+      sequence.end());
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGC-ATC-T");
+  REQUIRE(sequence == original);
+  flipped.flip_inplace(
+      std::prev(flipped.end()),
+      flipped.end());
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "AGC-ATC-A");
+  flipped = sequence.flip(
+      std::next(sequence.base_begin()),
+      std::next(sequence.base_begin(), 4));
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "ACG-AAG-A");
+  REQUIRE(sequence == original);
+  flipped.flip_inplace(
+      std::next(flipped.base_begin(),2),
+      flipped.base_end());
+  REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "ACC-TTC-T");
+}
 
 void seq_modify_reverse() {}
