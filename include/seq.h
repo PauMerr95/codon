@@ -173,18 +173,40 @@ class Seq {
   // Right shift the sequence inplace
   void rshift_inplace(std::size_t amount = 1);
 
-  //Copies and returns a reversed variant of the sequence
+  //Copies and returns a reversed variant of the entire sequence
+  // - shallow (Codon Level)
   codon::Seq reverse() const;
 
-  //Copies and returns a variant sequence with the specified range reversed
-  codon::Seq reverse(codon::Seq::const_iterator it_start,
-                     codon::Seq::const_iterator it_end) const;
+  //Copies and returns a reversed variant of the entire sequence
+  // - deep (Base Level)
+  codon::Seq deep_reverse() const;
 
-  //Reverses the sequence inplace
+  //Reverses the entire sequence inplace - shallow (Codon Level)
   void reverse_inplace();
 
+  //Reverses the entire sequence inplace
+  // - deep (Base Level)
+  void deep_reverse_inplace();
+
+  //Copies and returns a reversed variant of the specified sequence
+  // - shallow (Codon Level)
+  codon::Seq reverse(const_iterator it_start,
+                     const_iterator it_end) const;
+
+  //Copies and returns a reversed variant of the specified sequence
+  // - shallow (Base Level)
+  codon::Seq deep_reverse(const_base_iterator bIt_start,
+                          const_base_iterator bIt_end) const;
+
+
   //Reverses the specified range of the sequence inplace
-  void reverse_inplace(codon::Seq::iterator it_start, codon::Seq::iterator it_end);
+  // - shallow (Codon Level)
+  void reverse_inplace(iterator it_start, iterator it_end);
+
+  //Reverses the specified range of the sequence inplace
+  // - shallow (Codon Level)
+  void deep_reverse_inplace(base_iterator bIt_start,
+                            base_iterator it_end);
 
   //Copies and returns a flipped variant of the sequence
   codon::Seq flip() const;
@@ -355,6 +377,9 @@ class Seq {
   };
 };
 
+static_assert(std::contiguous_iterator<Seq::iterator>);
+static_assert(std::permutable<Seq::iterator>);
+static_assert(std::ranges::contiguous_range<Seq>);
 
 static_assert(std::random_access_iterator<Seq::base_iterator>);
 static_assert(std::indirectly_writable<Seq::base_iterator, codon::base>);

@@ -17,6 +17,7 @@
 
 #include "codon.h"
 
+//TODO: MAKE ERRORS COHESIVE
 
 using namespace codon;
 constexpr inline std::size_t max_uLL{std::numeric_limits<std::size_t>::max()};
@@ -82,9 +83,9 @@ Seq::Seq(std::string_view input, IO_FORMAT fmt) {
     return;
   }
   throw std::invalid_argument(std::format(
-      "Expected IO_FORMAT::fasta_DNA or IO_FORMAT::codon_ascii."
-      "\nReceived: {}", fmt_to_strv(fmt)
-        ));
+      "SEQ_ERR: Constructor(string_view, IO_FORMAT):\n"
+      "> Expected IO_FORMAT::fasta_DNA or IO_FORMAT::codon_ascii.\n"
+      "> Received: {}", fmt_to_strv(fmt)));
 }
 
 Seq::Seq(const std::size_t& size) { this->seq.reserve(size); }
@@ -121,14 +122,14 @@ void codon::Seq::lshift_inplace(std::size_t amount) {
   if (this->seq.empty()) {
     throw std::runtime_error(
         "SEQ_ERR: Invalid use of lshift:\n"
-        "Sequence is empty");
+        "> Sequence is empty");
   }
   int n = static_cast<int>(amount % 3);
   if (!n) return;
   if (this->front().is_full() || this->front().length() + n > 3) {
     throw std::runtime_error(
         "SEQ_ERR: Invalid use of lshift:\n"
-        "lshift operation exceeds available space in first codon."
+        "> lshift operation exceeds available space in first codon."
         );
   }
   base hopping_base;
@@ -150,7 +151,7 @@ void codon::Seq::rshift_inplace(std::size_t amount) {
   if (this->seq.empty()) {
     throw std::runtime_error(
         "SEQ_ERR: Invalid use of rshift:\n"
-        "Sequence is empty");
+        "> Sequence is empty");
   }
   int n = static_cast<int>(amount % 3);
   if (!n) return;
@@ -188,52 +189,85 @@ codon::Seq codon::Seq::rshift(std::size_t amount) {
   return tmp;
 }
 
-
-//Reverses the sequence
-void Seq::reverse_inplace() {
-  this->reverse_inplace(begin(), end());
-}
-
-//Reverses the subsequence specified by [it_start, it_end)
-void Seq::reverse_inplace(codon::Seq::iterator it_start,
-                          codon::Seq::iterator it_end) {
-  if (it_start < this->begin() || it_end > this->end()) {
-    throw std::invalid_argument(
-        "SEQ_ERR: reverse/reverse_inplace:\n"
-        "Out of bound iterators passed.");
-  }
-  if (it_start > it_end) {
-    throw std::invalid_argument(
-        "SEQ_ERR: reverse/reverse_inplace:\n"
-        "Iterators are passed in wrong order. it_start > it_end.");
-  }
-  while (it_start != it_end) {
-    if (it_start == --it_end) {
-     it_start->reverse_inplace();
-     break;
-    }
-    it_start->reverse_inplace();
-    it_end->reverse_inplace();
-    std::iter_swap(it_start++, it_end);
-  }
-}
-
-//Returns a reversed copy of the sequence
 codon::Seq Seq::reverse() const {
   Seq tmp{this};
   tmp.reverse_inplace();
   return tmp;
 }
+codon::Seq Seq::deep_reverse() const {
+  Seq tmp{this};
+  tmp.deep_reverse_inplace();
+  return tmp;
+}
+void Seq::reverse_inplace() {
+  this->reverse_inplace(begin(), end());
+}
+void Seq::deep_reverse_inplace() {
+  this->deep_reverse_inplace(base_begin(), base_end());
+}
 
-//Returns a copy of the sequence with [it_start, it_end) reversed.
-codon::Seq codon::Seq::reverse(codon::Seq::const_iterator it_start,
-    codon::Seq::const_iterator it_end) const {
+Seq Seq::reverse(Seq::const_iterator it_start,
+                 Seq::const_iterator it_end) const {
   Seq tmp{this};
   auto tmp_start = std::next(tmp.begin(), std::distance(cbegin(), it_start));
   auto tmp_end   = std::next(tmp.begin(), std::distance(cbegin(), it_end));
   tmp.reverse_inplace(tmp_start, tmp_end);
   return tmp;
 }
+
+Seq Seq::deep_reverse(Seq::const_base_iterator bIt_start,
+                      Seq::const_base_iterator bIt_end) const {
+  Seq tmp{this};
+  auto tmp_start = std::next(
+      tmp.base_begin(), std::distance(base_begin(), bIt_start));
+  auto tmp_end   = std::next(
+      tmp.base_begin(), std::distance(base_begin(), bIt_end));
+  tmp.deep_reverse_inplace(tmp_start, tmp_end);
+  return tmp;
+}
+
+void Seq::reverse_inplace(Seq::iterator it_start,
+                          Seq::iterator it_end) {
+  if (it_start < this->begin() || it_end > this->end()) {
+    throw std::invalid_argument(
+        "SEQ_ERR: reverse/reverse_inplace:\n"
+        "> Out of bound iterators passed.");
+  }
+  if (it_start > it_end) {
+    throw std::invalid_argument(
+        "SEQ_ERR: reverse/reverse_inplace:\n"
+        "> Iterators are passed in wrong order. it_start > it_end.");
+  }
+  if (!std::prev(it_end)->is_full() && it_start != this->begin()) {
+    throw std::invalid_argument(std::format(
+        "SEQ_ERR: reverse/reverse_inplace:\n"
+        "> The final codon in the specified sequence is incomplete.\n"
+        "> It cannot be swapped with the first in the range,\n"
+        "> without creating a gap inside the frame.\n"
+        "> ===={}==//=={}\n"
+        "> ~~~~^^^~~~~~~{}\n",
+        it_start->get_inner_as_dna(),
+        std::prev(it_end)->get_inner_as_dna(),
+        std::string(std::prev(it_end)->length(), '^')));
+  }
+  std::ranges::reverse(it_start, it_end);
+}
+
+void Seq::deep_reverse_inplace(codon::Seq::base_iterator bIt_start,
+                               codon::Seq::base_iterator bIt_end) {
+  if (bIt_start < this->base_begin() || bIt_end > this->base_end()) {
+    throw std::invalid_argument(
+        "SEQ_ERR: deep_reverse/reverse_inplace:\n"
+        "> Out of bound iterators passed.");
+  }
+  if (bIt_start > bIt_end) {
+    throw std::invalid_argument(
+        "SEQ_ERR: deep_reverse/reverse_inplace:\n"
+        "> Iterators are passed in wrong order. bIt_start > bIt_end.");
+  }
+  std::ranges::reverse(bIt_start, bIt_end);
+}
+
 
 // Returns a flipped copy of the sequence.
 codon::Seq codon::Seq::flip() const {

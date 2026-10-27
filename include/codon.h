@@ -145,7 +145,7 @@ class Codon {
   constexpr Codon(std::string_view bases_str);
   constexpr Codon(const base& base);
   constexpr Codon(char encoded_char);
-  constexpr Codon(const codon::Codon* const other);
+  constexpr explicit Codon(const codon::Codon* const other);
   constexpr Codon(const codon::Codon& other);
   constexpr Codon(codon::Codon&& other) noexcept;
 
@@ -182,14 +182,9 @@ class Codon {
   constexpr void flip_inplace();
   constexpr void flip_base(shift shift);
 
-  constexpr codon::Codon operator=(const codon::Codon& other) {
-    this->bases = other.bases;
-    return *this;
-  }
-  constexpr codon::Codon operator=(codon::Codon&& other) {
-    this->bases = other.bases;
-    return *this;
-  }
+  constexpr codon::Codon& operator=(const codon::Codon& other) = default;
+  constexpr codon::Codon& operator=(codon::Codon&& other) = default;
+
   constexpr bool operator==(const codon::Codon& other) const {
     return (this->bases == other.bases);
   }
@@ -522,3 +517,5 @@ constexpr Codon complement(Codon cdn) {
   return cdn.flip();
 }
 } // namespace codon
+
+static_assert(std::movable<codon::Codon>);

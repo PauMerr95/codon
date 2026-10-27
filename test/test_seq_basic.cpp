@@ -405,4 +405,69 @@ void seq_modify_flip() {
   REQUIRE(flipped.to_str(codon::IO_FORMAT::fna_DNA, "-") == "ACC-TTC-T");
 }
 
-void seq_modify_reverse() {}
+std::string seqstring(const codon::Seq& seq) {
+  return seq.to_str(codon::IO_FORMAT::fna_DNA, "-");
+}
+
+codon::Seq get_sequence() {
+  return codon::Seq("AGCTAGAATATGCATACACCCAT");
+}
+void seq_modify_reverse() {
+  codon::Seq sequence{get_sequence()};
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+  // reverse
+  // reverse (iterator, iterator)
+  // reverse_inplace
+  // reverse_inplace (iterator, iterator)
+  codon::Seq reversed{sequence.reverse()};
+  REQUIRE(seqstring(reversed) == "AT-CCC-ACA-CAT-ATG-AAT-TAG-AGC");
+  REQUIRE(sequence == get_sequence());
+  reversed.reverse_inplace();
+  REQUIRE(reversed == get_sequence());
+
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+  // ~~~~~~~~^^^ ^^^ ^^^ ^^^ ^^^~~~
+  reversed = sequence.reverse(
+      std::next(sequence.begin(), 2),
+      std::next(sequence.begin(), 7));
+  REQUIRE(seqstring(reversed) == "AGC-TAG-CCC-ACA-CAT-ATG-AAT-AT");
+  REQUIRE(sequence == get_sequence());
+  REQUIRE_THROWS(sequence.reverse(
+        std::next(sequence.begin(), 2),
+        sequence.end())); // would put an incomplete codon in the middle of the sequence
+                          //
+  // AGC-TAG-CCC-ACA-CAT-ATG-AAT-AT
+  // ^^^ ^^^ ^^^ ^^^~~~~~~~~~~~~~~~
+  reversed.reverse_inplace(
+      reversed.begin(),
+      std::next(reversed.begin(), 4));
+  REQUIRE(seqstring(reversed) == "ACA-CCC-TAG-AGC-CAT-ATG-AAT-AT");
+
+  //TODO:: FINISH DEEP REVERSE TESTS AND ERRORS
+  // deep_reverse
+  sequence = get_sequence();
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+  reversed = sequence.deep_reverse();
+  REQUIRE(seqstring(reversed) == "TAC-CCA-CAT-ACG-TAT-AAG-ATC-GA");
+  REQUIRE(sequence == get_sequence());
+
+  reversed.deep_reverse_inplace();
+  REQUIRE(sequence == reversed);
+
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+  // ~~~~~~~~~~~~~~~~~~^ ^^^ ^^^ ^^
+  reversed =  sequence.deep_reverse(
+      std::prev(sequence.base_end(), 10),
+      sequence.base_end());
+  REQUIRE(seqstring(reversed) == "AGC-TAG-AAT-ATG-CAT-ACC-CAC-AT");
+  REQUIRE(sequence == get_sequence());
+
+  // deep_reverse (base_iter, base_iter)
+  // deep_reverse_inplace
+  // deep_reverse_inplace (base_iter, base_iter)
+  //
+  // exceptions
+  // out of bound
+  // illegal operation
+  // it_start and end flipped
+}
