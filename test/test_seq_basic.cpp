@@ -37,6 +37,7 @@ void seq_modify_reverse();
 
 test::Result test::seq_test_basic() {
   try {
+    codon::Seq s{"ATGCCACATATATAGAAG"};
     REQUIRE(seq_basic_constr() == Result::Pass);
     REQUIRE(seq_basic_getters() == Result::Pass);
     REQUIRE(seq_basic_setters() == Result::Pass);
@@ -432,9 +433,6 @@ void seq_modify_reverse() {
       std::next(sequence.begin(), 7));
   REQUIRE(seqstring(reversed) == "AGC-TAG-CCC-ACA-CAT-ATG-AAT-AT");
   REQUIRE(sequence == get_sequence());
-  REQUIRE_THROWS(sequence.reverse(
-        std::next(sequence.begin(), 2),
-        sequence.end())); // would put an incomplete codon in the middle of the sequence
                           //
   // AGC-TAG-CCC-ACA-CAT-ATG-AAT-AT
   // ^^^ ^^^ ^^^ ^^^~~~~~~~~~~~~~~~
@@ -443,8 +441,6 @@ void seq_modify_reverse() {
       std::next(reversed.begin(), 4));
   REQUIRE(seqstring(reversed) == "ACA-CCC-TAG-AGC-CAT-ATG-AAT-AT");
 
-  //TODO:: FINISH DEEP REVERSE TESTS AND ERRORS
-  // deep_reverse
   sequence = get_sequence();
   // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
   reversed = sequence.deep_reverse();
@@ -455,19 +451,47 @@ void seq_modify_reverse() {
   REQUIRE(sequence == reversed);
 
   // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
-  // ~~~~~~~~~~~~~~~~~~^ ^^^ ^^^ ^^
+  // ~~~~~~~~~~~~~~~~~~^ ^^^ ^^^ ^^|
   reversed =  sequence.deep_reverse(
-      std::prev(sequence.base_end(), 10),
+      std::ranges::prev(sequence.base_end(), 9),
       sequence.base_end());
   REQUIRE(seqstring(reversed) == "AGC-TAG-AAT-ATG-CAT-ACC-CAC-AT");
   REQUIRE(sequence == get_sequence());
 
-  // deep_reverse (base_iter, base_iter)
-  // deep_reverse_inplace
-  // deep_reverse_inplace (base_iter, base_iter)
-  //
+  reversed.deep_reverse_inplace(
+      std::ranges::prev(reversed.base_end(), 9),
+      reversed.base_end());
+  REQUIRE(sequence == reversed);
+
+  reversed = get_sequence();
+  reversed.deep_reverse_inplace();
+  REQUIRE(seqstring(reversed) == "TAC-CCA-CAT-ACG-TAT-AAG-ATC-GA");
+
+  reversed = get_sequence();
+  reversed.deep_reverse_inplace(
+      std::next(reversed.base_begin(), 10),
+      std::next(reversed.base_begin(), 16));
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+  // ~~~~~~~~~~~~~^^ ^^^ ^~~~~~~~~~
+  REQUIRE(seqstring(reversed) == "AGC-TAG-AAT-AAT-ACG-TCA-CCC-AT");
+
   // exceptions
-  // out of bound
-  // illegal operation
-  // it_start and end flipped
+  REQUIRE_THROWS(reversed.deep_reverse_inplace(
+        reversed.base_begin(),
+        std::next(reversed.base_end(), 1)));
+  REQUIRE_THROWS(reversed.deep_reverse_inplace(
+        std::prev(reversed.base_begin(), 1),
+        reversed.base_end()));
+  REQUIRE_THROWS(reversed.reverse_inplace(reversed.begin(), std::next(reversed.end(), 1))); 
+  REQUIRE_THROWS(reversed.reverse_inplace(std::prev(reversed.begin(), 1), reversed.end())); 
+
+  REQUIRE_THROWS(reversed.reverse_inplace(reversed.end(), reversed.begin()));
+  REQUIRE_THROWS(reversed.deep_reverse_inplace(reversed.base_end(), reversed.base_begin()));
+
+  reversed = get_sequence();
+  // AGC-TAG-AAT-ATG-CAT-ACA-CCC-AT
+
+  REQUIRE_THROWS(sequence.reverse(
+        std::next(sequence.begin(), 2),
+        sequence.end())); // would put an incomplete codon in the middle of the sequence
 }

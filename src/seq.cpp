@@ -50,9 +50,6 @@ Seq::const_base_iterator Seq::base_cend() const {
   return {&seq.back(), static_cast<shift>(seq.back().length())};
 }
 
-auto Seq::bases()       { return std::ranges::subrange(base_begin(), base_end());}
-auto Seq::bases() const { return std::ranges::subrange(base_cbegin(), base_cend());}
-
 // CONSTRUCTOR
 
 Seq::Seq(std::string_view input, IO_FORMAT fmt) {

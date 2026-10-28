@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <iterator>
 #include <numeric>
+#include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -49,9 +50,10 @@ class Seq {
   const_base_iterator base_cend() const;
 
   //returns an range over the bases in the sequence
-  auto bases();
+  auto bases() { return std::ranges::subrange(base_begin(), base_end());}
+
   //returns an const_range over the bases in the sequence
-  auto bases() const;
+  auto bases() const { return std::ranges::subrange(base_cbegin(), base_cbegin());}
 
   //CONSTRUCTOR
 
@@ -289,7 +291,7 @@ class Seq {
 
     public:
     using iterator_concept  = std::random_access_iterator_tag;
-    using iterator_category = std::input_iterator_tag;
+    using iterator_category = std::random_access_iterator_tag; // not really correct because const version is not a reference
     using value_type        = codon::base;
     using difference_type   = std::ptrdiff_t;
     using reference         = std::conditional_t<Const, codon::base, base_ref>;
@@ -334,12 +336,15 @@ class Seq {
     auto operator<=>(const basic_base_iterator& other) const = default;
 
     basic_base_iterator& operator+=(difference_type n) {
+      //7 , 2 + -10 => -8
+      // q => -2
+      // r => -2
       difference_type pos = static_cast<difference_type>(_shift) + n;
       difference_type q = pos / MAX_SHIFT;
       difference_type r = pos % MAX_SHIFT;
       if (r < 0) { r += MAX_SHIFT; q--; }
       _ptr += q;
-      _shift = static_cast<shift>(r);
+      _shift = static_cast<shift>((r < 0) ? (r * -1) : r);
       return *this;
     }
     basic_base_iterator& operator-=(difference_type n) {

@@ -358,8 +358,8 @@ constexpr int codon::Codon::length() const {
     case codon::marker::TWO:   return 2;
     case codon::marker::THREE: return 3;
   }
-}
 
+}
 
 // This function readjusts the bases to a printable format
 constexpr char Codon::get_inner_as_ascii() const {
