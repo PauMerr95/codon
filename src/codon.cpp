@@ -22,25 +22,6 @@ std::bitset<8> Codon::get_inner_as_bin() const {
   return std::bitset<8>(this->bases);
 }
 
-void codon::Codon::replace(codon::base base, codon::shift shift) {
-  int len = this->length();
-  if (static_cast<int>(shift) >= len)
-    throw std::invalid_argument(
-        "Invalid shift specified for replace operation is out of bounds");
-  int distance = (len - 1) - static_cast<int>(shift);
-  unsigned int mask_base = base;
-  unsigned int mask_del  = codon::base::T;
-  while (distance--) {
-    mask_base <<= 2;
-    mask_del  <<= 2;
-  }
-  unsigned int bases = this->bases;
-  bases &= ~mask_del;
-  bases |= mask_base;
-  this->bases = to_uint8(bases);
-}
-
-
 //Inserts a base on the right side.
 //@param codon::base: base to be inserted
 //@throws runtime_error: if codon is already full

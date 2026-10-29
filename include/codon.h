@@ -11,6 +11,11 @@
 
 namespace codon {
 
+//Base encoded as enum
+//A{0b00}
+//G{0b01}
+//C{0b10}
+//T{0b11}
 enum base : unsigned int {
   A = 0b00,
   G = 0b01,
@@ -18,30 +23,44 @@ enum base : unsigned int {
   T = 0b11,
 };
 
+//Helper function to for casting to unsigned 8bit integer.
 template <typename T>
 constexpr inline std::uint8_t to_uint8(T x) {
   return static_cast<std::uint8_t>(x);
 }
+//Helper function to for casting to unsigned integer (platform dependant size).
 template <typename T>
 constexpr inline unsigned int to_uint(T x) {
   return static_cast<unsigned int>(x);
 }
+//Helper function to for casting to enum codon::base.
+//This function has to control mechanism for values outside of convertable range
 template <typename T>
-constexpr inline codon::base to_base(T x) {
+constexpr inline base to_base(T x) {
   return static_cast<enum base>(x);
 }
 
+// Encoding constant for converting codons of len 1 to ascii
 constexpr std::uint8_t ENCODING_DELTA_BASE1 = 26;
+// Encoding constant for converting codons of len 2 to ascii
 constexpr std::uint8_t ENCODING_DELTA_BASE2 = 86;
+// Encoding constant for converting codons of len 3 to ascii
 constexpr std::uint8_t ENCODING_DELTA_BASE3 = 129;
 
+//ASCII lower bound for encodings of codon length 1
 constexpr std::uint8_t ENCODED_LOW_BASE1  = 38;
+//ASCII upper bound for encodings of codon length 1
 constexpr std::uint8_t ENCODED_HIGH_BASE1 = 41;
+//ASCII lower bound for encodings of codon length 2
 constexpr std::uint8_t ENCODED_LOW_BASE2  = 42;
+//ASCII upper bound for encodings of codon length 2
 constexpr std::uint8_t ENCODED_HIGH_BASE2 = 57;
+//ASCII lower bound for encodings of codon length 3
 constexpr std::uint8_t ENCODED_LOW_BASE3  = 63;
+//ASCII upper bound for encodings of codon length 3
 constexpr std::uint8_t ENCODED_HIGH_BASE3 = 126;
 
+//Enum describing viable io formats
 enum IO_FORMAT {
   fna_DNA,
   fna_RNA,
@@ -52,6 +71,7 @@ enum IO_FORMAT {
   // Add new formats to test_codon.cpp: aux_enums() test
 };
 
+//Helper function converting IO_FORMAT enum to string_view
 constexpr std::string_view fmt_to_strv(IO_FORMAT fmt) {
   switch (fmt) {
     case IO_FORMAT::fna_DNA:   return "fna_DNA";
@@ -63,8 +83,12 @@ constexpr std::string_view fmt_to_strv(IO_FORMAT fmt) {
   }
 }
 
-// Enum to describe a base within a Codon,
-// read from left to right
+// Enum to describe the location of a base within a Codon,
+// read from left to right.
+// AGT.
+// ^-- => ZERO
+// -^- => ONE
+// --^ => TWO
 enum shift {
   ZERO,
   ONE,
@@ -101,6 +125,9 @@ inline shift operator--(shift& sh, int){
   return tmp;
 }
 
+// Helper enum for markers bits.
+// 00 00 00 00.
+// ^^---------
 enum class marker: unsigned int {
   VOID  = 0b00'00'00'00,
   ONE   = 0b01'00'00'00,
@@ -108,6 +135,7 @@ enum class marker: unsigned int {
   THREE = 0b11'00'00'00,
 };
 
+// Helper enum for commonly used masks.
 enum class mask: unsigned int {
   base_1 = 0b00'00'00'11,
   base_2 = 0b00'00'11'00,
@@ -132,54 +160,110 @@ constexpr char base_to_char(const base& base) {
   }
 }
 
+// Mutable wrapper class for a single base inside a codon.
 class base_ref;
 
 class Codon {
   std::uint8_t bases{0};
 
   constexpr Transmuter  _transmute() const;
-
- public:
   constexpr std::size_t _to_idx() const;
 
+ public:
+  // c-style string, std::string and std::string_view constructor.
+  // Codon cdn{"AGT"};
   constexpr Codon(std::string_view bases_str);
+  // Codon constructor from enum base.
+  // Codon cdn{base::A};
   constexpr Codon(const base& base);
+  // Codon constructor from ascii encoding.
+  // Codon cdn{'g'}; // => CCA
   constexpr Codon(char encoded_char);
+  // Codon constructor from const ptr to const codon.
+  // Codon cdn{cptr_to_cdn};
   constexpr explicit Codon(const codon::Codon* const other);
+  // Codon copy constructor
+  // Codon cdn_copy{cdn};
   constexpr Codon(const codon::Codon& other);
+  // Codon move constructor
+  // Codon cdn_moved = std::move(cdn);
   constexpr Codon(codon::Codon&& other) noexcept;
 
+  // Checks if the codon is full (.length() == 3)
   constexpr bool is_full() const;
+  // Checks if the codon is empty (.is_meta() && no_wildcard_encoding)
   constexpr bool is_empty() const;
+  // Checks if the codon is a wildcard encoding indicator
+  constexpr bool is_meta() const;
+  // Checks if the codon is a complement of another (flipped version)
   constexpr bool is_complement_of(const Codon& other) const;
 
+  // Returns a string of the stored bases in the format specified
   std::string to_str(IO_FORMAT fmt = fna_DNA) const;
+  // Returns the amount of stored codons.
+  // meta codon indicators and empty codons have length 0
   constexpr int length() const;
 
+  // Returns a string_view of the stored bases in IO_FORMAT::fna_DNA
   constexpr std::string_view get_inner_as_dna()    const;
+  // Returns a string_view of the stored bases in IO_FORMAT::fna_RNA
   constexpr std::string_view get_inner_as_rna()    const;
+  // Returns a string_view of the stored bases in IO_FORMAT::fna_PROT.
+  // (three letter version)
   constexpr std::string_view get_inner_as_prot_w() const;
+  // Returns a char of the stored bases in IO_FORMAT::fna_PROT.
+  // (one letter version)
   constexpr char get_inner_as_prot() const;
+  // Returns a char of the stored bases in IO_FORMAT::cdn_ASCII.
+  // (one letter version)
   constexpr char get_inner_as_ascii() const;
+  // Returns a char of the stored bases in IO_FORMAT::cdn_NUM.
   constexpr int  get_inner_as_int() const;
+  // Returns a bitset of the stored bases in IO_FORMAT::cdn_BIN.
   std::bitset<8> get_inner_as_bin() const;
 
+  // Returns a base_ref object pointing at the the specified base
   constexpr base_ref get_base_ref(shift shift=ZERO);
+  // Returns an enum base at the specified shift
+  // Will throw when Codon is empty,
+  // or when shift exceeds available bases
   constexpr base get_base(shift shift=MAX_SHIFT) const;
+  // Changes the base at the specified shift.
+  // Will throw when Codon is empty,
+  // or when shift exceeds available bases
   constexpr void set_base(shift shift, base base);
 
-  void replace(base base, shift shift=ZERO);
+  // Will insert the base at the right side.
+  // Will throw on full codons.
   void insert_right(base base);
+  // Will insert the base at the left side.
+  // Will throw on full codons.
   void insert_left(base base);
+  // Will insert the base at the right side, shifting the codon left.
+  // Returns the previously left-most codon that is removed from the codon.
+  // Will throw on incomplete codons.
   base squeeze_right(base base);
+  // Will insert the base at the left side, shifting the codon right.
+  // Returns the previously right-most codon that is removed from the codon.
+  // Will throw on incomplete codons.
   base squeeze_left(base base);
+  // Will remove the base at the specified shift and return it.
+  // The default value will remove the right-most base.
   base pop(shift loc = MAX_SHIFT);
 
+  // Returns a copy, with the bases inside reversed.
   codon::Codon reverse() const;
+  // Reverses the bases inside the codon in place.
   void reverse_inplace();
 
+
+  // Returns a copy, with the bases inside flipped.
+  // Will preserve marker but also flip undefined areas
   constexpr codon::Codon flip() const;
+  // Flips the bases inside the codon in place.
+  // Will preserve marker but also flip undefined areas
   constexpr void flip_inplace();
+  // Flips a single, specified bases inside the codon in place.
   constexpr void flip_base(shift shift);
 
   constexpr codon::Codon& operator=(const codon::Codon& other) = default;
@@ -192,11 +276,14 @@ class Codon {
     return (this->bases != other.bases);
   }
 };
+
+// Base Reference wrapper for a single base inside a codon
 class base_ref{
   Codon* _codon;
   shift _shift;
 
   public:
+
   constexpr base_ref(Codon* codon, shift s): _codon{codon}, _shift{s} {}
 
   constexpr operator codon::base() const { return _codon->get_base(_shift);}
@@ -213,8 +300,11 @@ class base_ref{
     copy.flip();
     return copy;
   }
+
+  // Flips the base the wrapper is referencing in place
   constexpr void flip() const {_codon->flip_base(_shift);}
 
+  // Swaps the bases between two base_ref objects
   friend void swap(const base_ref& a, const base_ref& b) {
     base tmp = a;
     a = codon::base(b);
@@ -231,8 +321,6 @@ class base_ref{
   friend auto operator<=>(const base_ref& a, base b) {return codon::base(a) <=> b;}
 };
 
-//Codon Constructor for from strings (decayed and undecayed C-Style, string, string_view)
-//Does not support wildcards. Will implicitly convert U into T.
 constexpr codon::Codon::Codon(std::string_view bases_str) {
   if (bases_str == "VOID") {
     this->bases = to_uint8(codon::marker::VOID);
@@ -307,11 +395,8 @@ constexpr Codon::Codon(char enc_char) {
   }
 }
 
-//Codon Constructor from const pointer to const
 constexpr Codon::Codon(const codon::Codon* const codon) : bases{codon->bases} {}
-//Codon Constructor from const reference
 constexpr Codon::Codon(const codon::Codon& other) : bases{other.bases} {}
-//Codon Constructor from r-value (just copy, its just one byte mate)...
 constexpr Codon::Codon(codon::Codon&& other) noexcept
     : bases{std::move(other.bases)} {}
 
@@ -322,8 +407,6 @@ constexpr bool Codon::is_empty() const {
   return (this->length() == 0);
 }
 
-// Checks if the codon has a complement marker '(111)10'
-// instead of '(000)01'
 constexpr bool Codon::is_complement_of(const Codon& other) const {
   if (other.length() != this->length()) return false;
   if (this->length() == 0) return false; 
@@ -348,8 +431,6 @@ constexpr base_ref codon::Codon::get_base_ref(codon::shift shift) {
   return base_ref{this, shift};
 }
 
-// This function returns the length of the codon.
-// Returns 0 for VOIDs
 constexpr int codon::Codon::length() const {
   switch (static_cast<codon::marker>(
         to_uint(this->bases) & to_uint(codon::mask::marker))) {
@@ -361,7 +442,6 @@ constexpr int codon::Codon::length() const {
 
 }
 
-// This function readjusts the bases to a printable format
 constexpr char Codon::get_inner_as_ascii() const {
   switch (this->length()) {
     case 0: return '%';
@@ -417,9 +497,6 @@ constexpr std::size_t Codon::_to_idx() const {
         idx));
 }
 
-// Returns the base at the specified shift.
-// Will throw when Codon is empty or when shift exceeds available bases
-// Exception is the default value MAX_SHIFT which will automatically take the right most base
 constexpr base Codon::get_base(codon::shift shift) const {
   if (this->is_empty()) throw std::out_of_range("Codon::get_base() called on empty Codon.");
   if (shift == codon::shift::MAX_SHIFT) {
@@ -441,9 +518,6 @@ constexpr base Codon::get_base(codon::shift shift) const {
   return static_cast<codon::base>(cdn & to_uint(codon::mask::base_1));
 }
 
-// Will set the specified shift to the passed.
-// Will throw when Codon is empty or when shift exceeds available bases
-// Exception is the default value MAX_SHIFT which will automatically take the right most base
 constexpr void codon::Codon::set_base(codon::shift shift, codon::base base) {
   if (this->is_empty())
     throw std::out_of_range("Codon::set_base() called on empty Codon. Did you mean to insert?");
@@ -469,17 +543,12 @@ constexpr void codon::Codon::set_base(codon::shift shift, codon::base base) {
   this->bases = to_uint8((cdn & ~mask) | insert);
 }
 
-// Flips and returns a copy of the codon
-// Will preserve marker but also flip undefined areas
-// @return Codon: the flipped copy
 constexpr codon::Codon codon::Codon::flip() const {
   codon::Codon copy(this);
   copy.flip_inplace();
   return copy;
 }
 
-// Flips the codon inplace
-// Will preserve marker but also flip undefined areas
 constexpr void codon::Codon::flip_inplace() {
   unsigned int cdn = to_uint(this->bases);
   switch (this->length()) {
@@ -490,7 +559,6 @@ constexpr void codon::Codon::flip_inplace() {
   this->bases = to_uint8(cdn);
 }
 
-// Flips a single base of a codon inplace
 constexpr void codon::Codon::flip_base(shift shift) {
   int s = static_cast<int>(shift);
   int l = this->length();
