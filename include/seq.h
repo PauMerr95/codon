@@ -23,48 +23,57 @@ class Seq {
   using base_iterator       = basic_base_iterator<false>;
   using const_base_iterator = basic_base_iterator<true>;
 
-  // returns a codon iterator aimed at the first element
+  // Returns a codon iterator aimed at the first element
   iterator begin();
-  // returns a codon iterator aimed past the last element
+  // Returns a codon iterator aimed past the last element
   iterator end();
-  // returns a implicit const codon iterator aimed at the first element
+  // Returns a implicit const codon iterator aimed at the first element
   const_iterator begin() const;
-  // returns an implicit const codon iterator aimed past the last element
+  // Returns an implicit const codon iterator aimed past the last element
   const_iterator end() const;
-  // returns an explicit const codon iterator aimed at the first element
+  // Returns an explicit const codon iterator aimed at the first element
   const_iterator cbegin() const;
-  // returns an explicit const codon iterator aimed past the last element
+  // Returns an explicit const codon iterator aimed past the last element
   const_iterator cend() const;
 
-  // returns a base iterator aimed at the first element
+  // Returns a base iterator aimed at the first element
   base_iterator base_begin();
-  // returns a base iterator aimed past the last element
+  // Returns a base iterator aimed past the last element
   base_iterator base_end();
-  // returns an implicit const base iterator aimed at the first element
+  // Returns an implicit const base iterator aimed at the first element
   const_base_iterator base_begin() const;
-  // returns an implicit const base iterator aimed past the last element
+  // Returns an implicit const base iterator aimed past the last element
   const_base_iterator base_end() const;
-  // returns an explicit const base iterator aimed at the first element
+  // Returns an explicit const base iterator aimed at the first element
   const_base_iterator base_cbegin() const;
-  // returns an explicit const base iterator aimed past the last element
+  // Returns an explicit const base iterator aimed past the last element
   const_base_iterator base_cend() const;
 
-  //returns an range over the bases in the sequence
+  //Returns an range over the bases in the sequence
   auto bases() { return std::ranges::subrange(base_begin(), base_end());}
 
-  //returns an const_range over the bases in the sequence
+  //Returns an const_range over the bases in the sequence
   auto bases() const { return std::ranges::subrange(base_cbegin(), base_cbegin());}
 
   //CONSTRUCTOR
 
+  // Seq constructor from c-style string,
+  // std::string and std::string_view.
+  // Additional argument specifies the encoding format
   Seq(std::string_view input, IO_FORMAT = fna_DNA);
   Seq(const codon::Codon& codon_copy);
   Seq(codon::Codon&& codon_move);
-  Seq(const std::size_t& size);
-  // copyconstructor
+  // Seq constructor from a size.
+  // Will initialise an empty sequence of the specified capacity with size yero.
+  Seq(const std::size_t& capacity);
+  // Copy constructor
+  // Seq copy{cptr_to_seq};
   Seq(const codon::Seq* const other): seq{other->seq} {};
+  // Copy constructor
+  // Seq copy{seq};
   Seq(const codon::Seq&) = default;
-  // moveconstructor
+  // Copy constructor
+  // Seq copy = std::move(seq);
   Seq(codon::Seq&&) noexcept = default;
 
   ~Seq();
@@ -83,8 +92,6 @@ class Seq {
   };
 
 
-  // GETTERS
-
   constexpr const codon::Codon& operator[](std::size_t n) const { return this->seq[n];}
   constexpr codon::Codon& operator[](std::size_t n) { return this->seq[n];}
 
@@ -101,10 +108,14 @@ class Seq {
   // Assumes that every Codon expect for the first and last Codon are full.
   constexpr std::size_t length() const;
 
+  // Returns a const reference to the last codon stored
   constexpr const codon::Codon& back() const { return this->seq[size() - 1];}
+  // Returns a mutable reference to the last codon stored
   constexpr codon::Codon& back() { return this->seq[size() - 1];}
 
+  // Returns a const reference to the first codon stored
   constexpr const codon::Codon& front() const { return *this->seq.data();}
+  // Returns a mutable reference to the first codon stored
   constexpr codon::Codon& front() { return *this->seq.data();}
   // Returns the bases stored in the sequence in O(n)
   // Will also work on "gap-y" sequences
@@ -140,13 +151,16 @@ class Seq {
   //Removes and returns the base specified
   codon::base pop_base(codon::Seq::base_iterator it);
 
-  //Removes and returns the codon specified
+  //Removes and returns the codon segment specified
   codon::Codon pop_codon(codon::Seq::base_iterator it, int size_cut = 3);
+  //Removes and returns the codon specified
   codon::Codon pop_codon(codon::Seq::iterator it);
 
-  //Removes and returns a subsequence specified by a start and a size of the excision
+  //Removes and returns a subsequence specified by a start (codon level) and a size of the excision
   //Will throw if edge is reached.
   codon::Seq pop_seq(codon::Seq::iterator it_start, std::ptrdiff_t size_cut_bp);
+  //Removes and returns a subsequence specified by a start (base level) and a size of the excision
+  //Will throw if edge is reached.
   codon::Seq pop_seq(codon::Seq::base_iterator it_start, std::ptrdiff_t size_cut_bp);
 
   //Removes and returns a subsequence specified by a start and end iterator
@@ -154,10 +168,10 @@ class Seq {
 
   //Removes and returns a subsequence specified by a start and end iterator
   codon::Seq pop_seq(codon::Seq::base_iterator bIt_start, codon::Seq::base_iterator bIt_end);
-  //Copies and returns a subsequence specified by a start and a size of the excision
-  //Removes and returns a subsequence specified by a start and end iterator
+  //Returns a subsequence specified by a start and end iterator (codon level)
   codon::Seq subseq(codon::Seq::iterator it_start,
                     codon::Seq::iterator it_end) const;
+  //Returns a subsequence specified by a start and end iterator (base level)
   codon::Seq subseq(codon::Seq::const_base_iterator bIt_start,
                     codon::Seq::const_base_iterator bIt_end) const;
 
@@ -281,6 +295,8 @@ class Seq {
 
 
   // Iterator class for iterating over Bases in a Seq
+  // const version will derefence into copy of codon::base
+  // mutable version will derefence into codon::base_ref
   template<bool Const>
   class basic_base_iterator{
     template<bool> friend class basic_base_iterator;
@@ -336,15 +352,12 @@ class Seq {
     auto operator<=>(const basic_base_iterator& other) const = default;
 
     basic_base_iterator& operator+=(difference_type n) {
-      //7 , 2 + -10 => -8
-      // q => -2
-      // r => -2
       difference_type pos = static_cast<difference_type>(_shift) + n;
       difference_type q = pos / MAX_SHIFT;
       difference_type r = pos % MAX_SHIFT;
       if (r < 0) { r += MAX_SHIFT; q--; }
       _ptr += q;
-      _shift = static_cast<shift>((r < 0) ? (r * -1) : r);
+      _shift = static_cast<shift>(r);
       return *this;
     }
     basic_base_iterator& operator-=(difference_type n) {
@@ -369,30 +382,22 @@ class Seq {
            - static_cast<difference_type>(other._shift);
     }
 
+    // Returns the pointer to the underlying codon. (unsafe)
     codon_t* get_ptr() const { return _ptr;}
+    // Returns the shift of the base_iterator in the current codon
     codon::shift get_shift() const { return _shift;}
 
-
+    // Returns an iterator for the underlying vector storage (unsafe)
     std::vector<codon::Codon>::iterator to_vec_iter() const {
       return std::vector<codon::Codon>::iterator(_ptr);
     }
+    // Returns an const iterator for the underlying vector storage
     std::vector<codon::Codon>::const_iterator to_vec_const_iter() const {
       return std::vector<codon::Codon>::const_iterator(_ptr);
     }
   };
 };
 
-static_assert(std::contiguous_iterator<Seq::iterator>);
-static_assert(std::permutable<Seq::iterator>);
-static_assert(std::ranges::contiguous_range<Seq>);
-
-static_assert(std::random_access_iterator<Seq::base_iterator>);
-static_assert(std::indirectly_writable<Seq::base_iterator, codon::base>);
-static_assert(std::sortable<Seq::base_iterator>);
-static_assert(std::permutable<Seq::base_iterator>);
-static_assert(!std::indirectly_writable<Seq::const_base_iterator, codon::base>);
-static_assert(std::is_convertible_v<Seq::base_iterator, Seq::const_base_iterator>);
-static_assert(!std::is_convertible_v<Seq::const_base_iterator, Seq::base_iterator>);
 }  // namespace codon
 
 

@@ -11,6 +11,7 @@ enum Result : bool { Pass, Fail };
 
 // === Codon Tests ===
 
+// Main wrapper test for codon.h and codon.cpp
 Result codon_main_test();
 
 Result codon_auxiliary();
@@ -23,9 +24,12 @@ Result codon_base_ref();
 
 // === Seq Tests ===
 
+// Main wrapper test for seq.h and seq.cpp
 Result seq_test_basic();
+// Additional wrapper test for seq.h and seq.cpp for ranges support
 Result seq_test_advanced();
 
+Result seq_static_asserts();
 Result seq_basic_constr();
 Result seq_basic_getters();
 Result seq_basic_setters();
@@ -41,6 +45,7 @@ Result seq_adv_ranges_integration();
 
 // === Readwrite Tests ===
 
+// Main wrapper test for readwrite.h and readwrite.cpp
 Result readwrite_main_test();
 
 Result readwrite_load_fna();

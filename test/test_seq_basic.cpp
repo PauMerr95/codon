@@ -35,9 +35,11 @@ void seq_modify_shift();
 void seq_modify_flip();
 void seq_modify_reverse();
 
+// INFO: ==> ENTRY POINT
+
 test::Result test::seq_test_basic() {
   try {
-    codon::Seq s{"ATGCCACATATATAGAAG"};
+    REQUIRE(seq_static_asserts() == Result::Pass);
     REQUIRE(seq_basic_constr() == Result::Pass);
     REQUIRE(seq_basic_getters() == Result::Pass);
     REQUIRE(seq_basic_setters() == Result::Pass);
@@ -48,6 +50,23 @@ test::Result test::seq_test_basic() {
     return Result::Fail;
   }
   return Result::Pass;
+}
+
+test::Result test::seq_static_asserts() {
+    static_assert(std::contiguous_iterator<codon::Seq::iterator>);
+    static_assert(std::permutable<codon::Seq::iterator>);
+    static_assert(std::ranges::contiguous_range<codon::Seq>);
+
+    static_assert(std::random_access_iterator<codon::Seq::base_iterator>);
+    static_assert(std::indirectly_writable<codon::Seq::base_iterator, codon::base>);
+    static_assert(std::sortable<codon::Seq::base_iterator>);
+    static_assert(std::permutable<codon::Seq::base_iterator>);
+    static_assert(!std::indirectly_writable<codon::Seq::const_base_iterator, codon::base>);
+    static_assert(std::is_convertible_v<codon::Seq::base_iterator,
+                  codon::Seq::const_base_iterator>);
+    static_assert(!std::is_convertible_v<codon::Seq::const_base_iterator,
+                  codon::Seq::base_iterator>);
+    return Result::Pass;
 }
 
 test::Result test::seq_basic_constr() {

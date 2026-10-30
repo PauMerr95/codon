@@ -37,6 +37,7 @@ void base_ref_test();
 
 test::Result test::codon_main_test() {
   try {
+
     REQUIRE(test::codon_auxiliary() == test::Pass);
     REQUIRE(test::codon_constr() == test::Pass);
     REQUIRE(test::codon_getters() == test::Pass);
